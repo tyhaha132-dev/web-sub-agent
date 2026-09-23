@@ -77,6 +77,8 @@ Pipeline sẽ scaffold code từ `templates/`, cài deps, migrate + seed DB, bui
 
 ## 📚 Web mẫu: EnglishFun
 
+Trang web để thử : https://english-fun-omega.vercel.app
+
 Web luyện tiếng Anh phong cách IELTS (`workspaces/english-1`, tiếng Việt, 302 từ, 6 chủ đề).
 
 | Trang        | Chức năng                                                              |
