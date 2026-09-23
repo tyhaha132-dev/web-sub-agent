@@ -1,12 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  fetchTopics,
   fetchWords,
   speak,
   SAMPLE_WORDS,
-  type Topic,
   type Word,
 } from '../../lib/api';
 import BlastGame from './blast-game';
@@ -23,6 +21,29 @@ const TABS: Array<{ id: Mode; label: string }> = [
 
 const rowStyle = { marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap' } as const;
 
+interface Deck {
+  name: string;
+  words: Word[];
+}
+
+const DECK_SIZE = 20;
+
+function buildDecks(all: Word[]): Deck[] {
+  if (all.length === 0) return [];
+  const count = Math.max(1, Math.round(all.length / DECK_SIZE));
+  const decks: Deck[] = [];
+  let i = 0;
+  let n = 0;
+  while (i < all.length) {
+    n += 1;
+    const left = count - decks.length;
+    const size = Math.max(1, Math.ceil((all.length - i) / left));
+    decks.push({ name: `Toeic ${n}`, words: all.slice(i, i + size) });
+    i += size;
+  }
+  return decks;
+}
+
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
   return Promise.race([
     p,
@@ -32,40 +53,38 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
 
 export default function Flashcards() {
   const [mode, setMode] = useState<Mode>('flip');
-  const [topic, setTopic] = useState('');
-  const [topics, setTopics] = useState<Topic[]>([]);
+  const [deckIdx, setDeckIdx] = useState(0);
   const [words, setWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    withTimeout(fetchTopics(), 8000).then((t) => {
-      if (t) setTopics(t);
-    }).catch(() => {});
-  }, []);
-
-  useEffect(() => {
     setLoading(true);
-    withTimeout(fetchWords(topic), 10000).then((w) => {
+    withTimeout(fetchWords(''), 15000).then((w) => {
       setWords(w && w.length > 0 ? w : SAMPLE_WORDS);
+      setDeckIdx(0);
       setLoading(false);
     }).catch(() => {
       setWords(SAMPLE_WORDS);
+      setDeckIdx(0);
       setLoading(false);
     });
-  }, [topic]);
+  }, []);
+
+  const decks = useMemo(() => buildDecks(words), [words]);
+  const deck = decks[Math.min(deckIdx, Math.max(decks.length - 1, 0))] ?? null;
+  const deckWords = deck ? deck.words : [];
 
   return (
     <main>
       <h1>🃏 Luyện tập từ vựng</h1>
       <div className="topic-row">
-        <button className={`topic-chip ${topic === '' ? 'active' : ''}`} onClick={() => setTopic('')}>📚 Tất cả</button>
-        {topics.map((t) => (
+        {decks.map((d, i) => (
           <button
-            key={t.topic}
-            className={`topic-chip ${topic === t.topic ? 'active' : ''}`}
-            onClick={() => setTopic(t.topic)}
+            key={d.name}
+            className={`topic-chip ${i === deckIdx ? 'active' : ''}`}
+            onClick={() => setDeckIdx(i)}
           >
-            {t.topic} ({t.total})
+            {d.name} ({d.words.length})
           </button>
         ))}
       </div>
@@ -80,15 +99,15 @@ export default function Flashcards() {
           </button>
         ))}
       </div>
-      {loading ? (
-        <div className="panel">⏳ Đang tải bộ từ{topic ? ` “${topic}”` : ''}... (backend ngủ thì chờ một chút nhé)</div>
+      {loading || !deck ? (
+        <div className="panel">⏳ Đang tải các bộ từ... (backend ngủ thì chờ một chút nhé)</div>
       ) : (
-        <div key={`${mode}-${topic}`}>
-          {mode === 'flip' && <FlipMode words={words} />}
-          {mode === 'write' && <WriteMode words={words} />}
-          {mode === 'listen' && <ListenMode words={words} />}
-          {mode === 'match' && <MatchMode words={words} />}
-          {mode === 'blast' && <BlastGame words={words} />}
+        <div key={`${mode}-${deck.name}`}>
+          {mode === 'flip' && <FlipMode words={deckWords} />}
+          {mode === 'write' && <WriteMode words={deckWords} />}
+          {mode === 'listen' && <ListenMode words={deckWords} />}
+          {mode === 'match' && <MatchMode words={deckWords} />}
+          {mode === 'blast' && <BlastGame words={deckWords} />}
         </div>
       )}
     </main>

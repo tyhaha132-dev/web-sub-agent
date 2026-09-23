@@ -68,16 +68,20 @@ function pickWord(words: Word[]): Word {
 
 let nextId = 1;
 
+function lettersOnly(s: string): string {
+  return s.toLowerCase().replace(/[^a-z]/g, '');
+}
+
 function spawnFloater(words: Word[], dir: Dir, diff: Diff, speedSetting: number, level: number): Floater {
   const w = pickWord(words);
   const answer = dir === 'vi-en' ? w.en : w.vi;
-  const norm = dir === 'vi-en' ? w.en.toLowerCase() : normVi(w.vi);
+  const norm = dir === 'vi-en' ? lettersOnly(w.en) : lettersOnly(normVi(w.vi));
   return {
     id: nextId++,
     prompt: dir === 'vi-en' ? w.vi : w.en,
     answer,
     norm,
-    hint: makeHint(answer, diff),
+    hint: makeHint(norm.length > 0 ? norm : answer, diff),
     x: 8 + Math.random() * 78,
     y: -10,
     speed: (4.5 + speedSetting * 2) * (1 + 0.12 * (level - 1)),
