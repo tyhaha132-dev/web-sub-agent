@@ -10,6 +10,7 @@ const links = [
   ['Trang chủ', '/'],
   ['Từ điển', '/dictionary'],
   ['Flashcards', '/flashcards'],
+  ['Card Blast', '/blast'],
   ['Quiz', '/quiz'],
   ['Tiến độ', '/progress'],
 ] as const;
