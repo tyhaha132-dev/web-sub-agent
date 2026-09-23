@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { fetchWords, saveProgress, type Word } from '../../lib/api';
+import { saveProgress, type Word } from '../../lib/api';
 
 type Dir = 'vi-en' | 'en-vi';
 type Diff = 'easy' | 'normal' | 'hard';
@@ -68,7 +68,7 @@ function pickWord(words: Word[]): Word {
 
 let nextId = 1;
 
-function spawnFloater(words: Word[], dir: Dir, diff: Diff, speedSetting: number, level: number, now: number): Floater {
+function spawnFloater(words: Word[], dir: Dir, diff: Diff, speedSetting: number, level: number): Floater {
   const w = pickWord(words);
   const answer = dir === 'vi-en' ? w.en : w.vi;
   const norm = dir === 'vi-en' ? w.en.toLowerCase() : normVi(w.vi);
@@ -93,7 +93,7 @@ function stepGame(s: Snap, words: Word[], dir: Dir, diff: Diff, speedSetting: nu
   const interval = Math.max(600, 2400 - speedSetting * 350);
 
   if (spawned < WORDS_PER_GAME && floaters.length < 4 && now - lastSpawn >= interval && words.length > 0) {
-    floaters = [...floaters, spawnFloater(words, dir, diff, speedSetting, level, now)];
+    floaters = [...floaters, spawnFloater(words, dir, diff, speedSetting, level)];
     spawned += 1;
     lastSpawn = now;
   }
@@ -156,7 +156,7 @@ function backspace(s: Snap): Snap {
   return { ...s, buffer, targetId };
 }
 
-const initialSnap = (now: number): Snap => ({
+const freshSnap = (now: number): Snap => ({
   floaters: [],
   booms: [],
   buffer: '',
@@ -171,13 +171,12 @@ const initialSnap = (now: number): Snap => ({
   phase: 'playing',
 });
 
-export default function Blast() {
-  const [words, setWords] = useState<Word[]>([]);
+export default function BlastGame({ words }: { words: Word[] }) {
   const [phase, setPhase] = useState<Phase>('setup');
   const [dir, setDir] = useState<Dir>('vi-en');
   const [diff, setDiff] = useState<Diff>('hard');
   const [speedSetting, setSpeedSetting] = useState(3);
-  const [snap, setSnap] = useState<Snap>(() => initialSnap(0));
+  const [snap, setSnap] = useState<Snap>(() => freshSnap(0));
   const snapRef = useRef(snap);
   snapRef.current = snap;
   const wordsRef = useRef<Word[]>(words);
@@ -185,10 +184,6 @@ export default function Blast() {
   const cfgRef = useRef({ dir, diff, speedSetting });
   cfgRef.current = { dir, diff, speedSetting };
   const savedRef = useRef(false);
-
-  useEffect(() => {
-    fetchWords().then(setWords).catch(() => {});
-  }, []);
 
   useEffect(() => {
     if (phase !== 'playing') return;
@@ -233,70 +228,66 @@ export default function Blast() {
   function start() {
     if (words.length === 0) return;
     savedRef.current = false;
-    setSnap(initialSnap(performance.now()));
+    setSnap(freshSnap(performance.now()));
     setPhase('playing');
   }
 
-  if (phase === 'setup' || words.length === 0) {
+  if (phase === 'setup') {
     return (
-      <main>
-        <div className="blast-wrap">
-          <div className="blast-sun">🌞</div>
-          <h1 className="blast-title">Card Blast</h1>
-          <p className="blast-sub">
-            Chữ rơi từ trên xuống — <b>gõ đáp án</b> là tàu tự bắn hạ.
-            Để lọt một từ xuống đáy là mất một mạng.
-          </p>
-          <div className="blast-opt-row">
-            <button className={`blast-opt ${dir === 'vi-en' ? 'selected' : ''}`} onClick={() => setDir('vi-en')}>
-              <h3>Việt → Anh</h3>
-              <p>Nghĩa rơi xuống · gõ từ tiếng Anh</p>
-            </button>
-            <button className={`blast-opt ${dir === 'en-vi' ? 'selected' : ''}`} onClick={() => setDir('en-vi')}>
-              <h3>Anh → Việt</h3>
-              <p>Từ rơi xuống · gõ nghĩa tiếng Việt</p>
-            </button>
-          </div>
-          <p className="blast-label">MỨC ĐỘ</p>
-          <div className="blast-opt-row">
-            <button className={`blast-opt ${diff === 'easy' ? 'selected' : ''}`} onClick={() => setDiff('easy')}>
-              <h3>Dễ</h3>
-              <p>Hé 2 chữ đầu</p>
-              <p>i m _ _ _ _</p>
-            </button>
-            <button className={`blast-opt ${diff === 'normal' ? 'selected' : ''}`} onClick={() => setDiff('normal')}>
-              <h3>Bình thường</h3>
-              <p>Hé 1 chữ đầu</p>
-              <p>i _ _ _ _ _</p>
-            </button>
-            <button className={`blast-opt ${diff === 'hard' ? 'selected' : ''}`} onClick={() => setDiff('hard')}>
-              <h3>Siêu khó</h3>
-              <p>Không gợi ý gì</p>
-              <p>không có ô nào</p>
-            </button>
-          </div>
-          <p className="blast-label">TỐC ĐỘ RƠI{SPEEDS.find((s) => s.v === speedSetting)?.label ? ` — ${SPEEDS.find((s) => s.v === speedSetting)?.label}` : ''}</p>
-          <div className="blast-speed-row">
-            {SPEEDS.map((s) => (
-              <button
-                key={s.v}
-                className={`blast-speed ${speedSetting === s.v ? 'selected' : ''}`}
-                onClick={() => setSpeedSetting(s.v)}
-              >
-                <div className="bar" style={{ height: 6 + s.v * 7 }} />
-                {s.v}
-              </button>
-            ))}
-          </div>
-          <button className="blast-play" onClick={start}>Chơi</button>
-          <p className="blast-note">{WORDS_PER_GAME} từ trong bộ · {MAX_LIVES} mạng · nhanh dần theo cấp</p>
-          <div className="blast-tip">
-            <p>⌨️ Gõ đáp án rồi thôi — không cần bấm Enter, khớp là bắn.</p>
-            <p>🇻🇳 Chiều Anh → Việt gõ <b>không dấu</b> vẫn tính (“cai thien” = “cải thiện”).</p>
-            <p>🎯 Từ đang gõ đỏ sáng vàng kèm vạch tiến độ — nhìn vào đó để gõ tiếp.</p>
-          </div>
+      <div className="blast-wrap">
+        <div className="blast-sun">🌞</div>
+        <h2 className="blast-title">💥 Card Blast</h2>
+        <p className="blast-sub">
+          Chữ rơi từ trên xuống — <b>gõ đáp án</b> là tàu tự bắn hạ.
+          Để lọt một từ xuống đáy là mất một mạng.
+        </p>
+        <div className="blast-opt-row">
+          <button className={`blast-opt ${dir === 'vi-en' ? 'selected' : ''}`} onClick={() => setDir('vi-en')}>
+            <h3>Việt → Anh</h3>
+            <p>Nghĩa rơi xuống · gõ từ tiếng Anh</p>
+          </button>
+          <button className={`blast-opt ${dir === 'en-vi' ? 'selected' : ''}`} onClick={() => setDir('en-vi')}>
+            <h3>Anh → Việt</h3>
+            <p>Từ rơi xuống · gõ nghĩa tiếng Việt</p>
+          </button>
         </div>
-      </main>
+        <p className="blast-label">MỨC ĐỘ</p>
+        <div className="blast-opt-row">
+          <button className={`blast-opt ${diff === 'easy' ? 'selected' : ''}`} onClick={() => setDiff('easy')}>
+            <h3>Dễ</h3>
+            <p>Hé 2 chữ đầu</p>
+          </button>
+          <button className={`blast-opt ${diff === 'normal' ? 'selected' : ''}`} onClick={() => setDiff('normal')}>
+            <h3>Bình thường</h3>
+            <p>Hé 1 chữ đầu</p>
+          </button>
+          <button className={`blast-opt ${diff === 'hard' ? 'selected' : ''}`} onClick={() => setDiff('hard')}>
+            <h3>Siêu khó</h3>
+            <p>Không gợi ý gì</p>
+          </button>
+        </div>
+        <p className="blast-label">TỐC ĐỘ RƠI — {SPEEDS.find((s) => s.v === speedSetting)?.label}</p>
+        <div className="blast-speed-row">
+          {SPEEDS.map((s) => (
+            <button
+              key={s.v}
+              className={`blast-speed ${speedSetting === s.v ? 'selected' : ''}`}
+              onClick={() => setSpeedSetting(s.v)}
+            >
+              <div className="bar" style={{ height: 6 + s.v * 7 }} />
+              {s.v}
+            </button>
+          ))}
+        </div>
+        <button className="blast-play" onClick={start} disabled={words.length === 0}>
+          {words.length === 0 ? '⏳ Đang tải từ...' : 'Chơi'}
+        </button>
+        <p className="blast-note">{WORDS_PER_GAME} từ trong bộ · {MAX_LIVES} mạng · nhanh dần theo cấp</p>
+        <div className="blast-tip">
+          <p>⌨️ Gõ đáp án rồi thôi — không cần bấm Enter, khớp là bắn.</p>
+          <p>🇻🇳 Chiều Anh → Việt gõ <b>không dấu</b> vẫn tính (“cai thien” = “cải thiện”).</p>
+        </div>
+      </div>
     );
   }
 
@@ -304,49 +295,46 @@ export default function Blast() {
   const nowMs = typeof performance !== 'undefined' ? performance.now() : 0;
 
   return (
-    <main>
-      <div className="blast-wrap">
-        <div className="blast-hud">
-          <span>❤ {'❤'.repeat(Math.max(snap.lives, 0))}{'🤍'.repeat(Math.max(MAX_LIVES - snap.lives, 0))}</span>
-          <span>⭐ {snap.score}</span>
-          <span>🎖️ Cấp {snap.level}</span>
-          <span>💥 {snap.blasted}/{WORDS_PER_GAME}</span>
-        </div>
-        <div className="blast-arena">
-          {snap.floaters.map((f) => {
-            const isTarget = f.id === snap.targetId;
-            const typedLen = isTarget ? snap.buffer.length : 0;
-            return (
-              <div
-                key={f.id}
-                className={`floater ${isTarget ? 'target' : ''} ${nowMs < snap.badUntil && isTarget ? 'bad' : ''}`}
-                style={{ left: `${f.x}%`, top: `${Math.max(f.y, 0)}%` }}
-              >
-                <div className="prompt">{f.prompt}</div>
-                {f.hint && <div className="hint">{f.hint}</div>}
-                {isTarget && (
-                  <div className="bar"><div style={{ width: `${(typedLen / f.norm.length) * 100}%` }} /></div>
-                )}
-              </div>
-            );
-          })}
-          {snap.booms.map((b) => (
-            <div key={b.id} className="floater-boom" style={{ left: `${b.x}%`, top: `${Math.max(b.y, 0)}%` }}>💥</div>
-          ))}
-          <div className="blast-ground">ĐÁY — đừng để lọt!</div>
-        </div>
-        <div className="blast-buffer">
-          {snap.buffer || <span className="blast-buffer-empty">gõ đáp án… (không cần Enter)</span>}
-        </div>
-        {(snap.phase === 'won' || snap.phase === 'lost') && (
-          <div className="blast-end">
-            <h2>{snap.phase === 'won' ? `🏆 Thắng! ${snap.score} điểm` : `💀 Thua rồi! ${snap.blasted}/${WORDS_PER_GAME} từ`}</h2>
-            <button className="blast-play" onClick={() => { savedRef.current = false; setSnap(initialSnap(performance.now())); }}>🔁 Chơi lại</button>
-            <button className="btn btn-ghost" onClick={() => setPhase('setup')}>⚙️ Đổi chế độ</button>
-          </div>
-        )}
-        {target === null && snap.phase === 'playing' && null}
+    <div className="blast-wrap">
+      <div className="blast-hud">
+        <span>❤ {'❤'.repeat(Math.max(snap.lives, 0))}{'🤍'.repeat(Math.max(MAX_LIVES - snap.lives, 0))}</span>
+        <span>⭐ {snap.score}</span>
+        <span>🎖️ Cấp {snap.level}</span>
+        <span>💥 {snap.blasted}/{WORDS_PER_GAME}</span>
       </div>
-    </main>
+      <div className="blast-arena">
+        {snap.floaters.map((f) => {
+          const isTarget = f.id === snap.targetId;
+          const typedLen = isTarget ? snap.buffer.length : 0;
+          return (
+            <div
+              key={f.id}
+              className={`floater ${isTarget ? 'target' : ''} ${nowMs < snap.badUntil && isTarget ? 'bad' : ''}`}
+              style={{ left: `${f.x}%`, top: `${Math.max(f.y, 0)}%` }}
+            >
+              <div className="prompt">{f.prompt}</div>
+              {f.hint && <div className="hint">{f.hint}</div>}
+              {isTarget && (
+                <div className="bar"><div style={{ width: `${(typedLen / f.norm.length) * 100}%` }} /></div>
+              )}
+            </div>
+          );
+        })}
+        {snap.booms.map((b) => (
+          <div key={b.id} className="floater-boom" style={{ left: `${b.x}%`, top: `${Math.max(b.y, 0)}%` }}>💥</div>
+        ))}
+        <div className="blast-ground">ĐÁY — đừng để lọt!</div>
+      </div>
+      <div className="blast-buffer">
+        {snap.buffer || <span className="blast-buffer-empty">gõ đáp án… (không cần Enter)</span>}
+      </div>
+      {(snap.phase === 'won' || snap.phase === 'lost') && (
+        <div className="blast-end">
+          <h2>{snap.phase === 'won' ? `🏆 Thắng! ${snap.score} điểm` : `💀 Thua rồi! ${snap.blasted}/${WORDS_PER_GAME} từ`}</h2>
+          <button className="blast-play" onClick={() => { savedRef.current = false; setSnap(freshSnap(performance.now())); }}>🔁 Chơi lại</button>
+          <button className="btn btn-ghost" onClick={() => setPhase('setup')}>⚙️ Đổi chế độ</button>
+        </div>
+      )}
+    </div>
   );
 }
