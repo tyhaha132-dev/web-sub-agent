@@ -1,32 +1,74 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { fetchWords, speak, type Word } from '../../lib/api';
+import { useEffect, useState } from 'react';
+import {
+  fetchTopics,
+  fetchWords,
+  speak,
+  SAMPLE_WORDS,
+  type Topic,
+  type Word,
+} from '../../lib/api';
+import BlastGame from './blast-game';
 
-type Mode = 'flip' | 'write' | 'listen' | 'match';
+type Mode = 'flip' | 'write' | 'listen' | 'match' | 'blast';
 
 const TABS: Array<{ id: Mode; label: string }> = [
   { id: 'flip', label: '🃏 Lật thẻ' },
   { id: 'write', label: '✍️ Điền từ' },
   { id: 'listen', label: '🔊 Nghe–chép' },
   { id: 'match', label: '⚡ Ghép cặp' },
+  { id: 'blast', label: '💥 Card Blast' },
 ];
 
 const rowStyle = { marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap' } as const;
 
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    p,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+  ]);
+}
+
 export default function Flashcards() {
   const [mode, setMode] = useState<Mode>('flip');
+  const [topic, setTopic] = useState('');
+  const [topics, setTopics] = useState<Topic[]>([]);
   const [words, setWords] = useState<Word[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchWords().then(setWords).catch(() => {});
+    withTimeout(fetchTopics(), 8000).then((t) => {
+      if (t) setTopics(t);
+    }).catch(() => {});
   }, []);
 
-  if (words.length === 0) return <p>⏳ Đang tải thẻ...</p>;
+  useEffect(() => {
+    setLoading(true);
+    withTimeout(fetchWords(topic), 10000).then((w) => {
+      setWords(w && w.length > 0 ? w : SAMPLE_WORDS);
+      setLoading(false);
+    }).catch(() => {
+      setWords(SAMPLE_WORDS);
+      setLoading(false);
+    });
+  }, [topic]);
 
   return (
     <main>
       <h1>🃏 Luyện tập từ vựng</h1>
+      <div className="topic-row">
+        <button className={`topic-chip ${topic === '' ? 'active' : ''}`} onClick={() => setTopic('')}>📚 Tất cả</button>
+        {topics.map((t) => (
+          <button
+            key={t.topic}
+            className={`topic-chip ${topic === t.topic ? 'active' : ''}`}
+            onClick={() => setTopic(t.topic)}
+          >
+            {t.topic} ({t.total})
+          </button>
+        ))}
+      </div>
       <div className="topic-row">
         {TABS.map((t) => (
           <button
@@ -38,10 +80,17 @@ export default function Flashcards() {
           </button>
         ))}
       </div>
-      {mode === 'flip' && <FlipMode words={words} />}
-      {mode === 'write' && <WriteMode words={words} />}
-      {mode === 'listen' && <ListenMode words={words} />}
-      {mode === 'match' && <MatchMode words={words} />}
+      {loading ? (
+        <div className="panel">⏳ Đang tải bộ từ{topic ? ` “${topic}”` : ''}... (backend ngủ thì chờ một chút nhé)</div>
+      ) : (
+        <div key={`${mode}-${topic}`}>
+          {mode === 'flip' && <FlipMode words={words} />}
+          {mode === 'write' && <WriteMode words={words} />}
+          {mode === 'listen' && <ListenMode words={words} />}
+          {mode === 'match' && <MatchMode words={words} />}
+          {mode === 'blast' && <BlastGame words={words} />}
+        </div>
+      )}
     </main>
   );
 }
@@ -224,10 +273,7 @@ function MatchMode({ words }: { words: Word[] }) {
   const [moves, setMoves] = useState(0);
   const [seconds, setSeconds] = useState(0);
   const [won, setWon] = useState(false);
-  const lock = useRef(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const matchedCount = useMemo(() => tiles.filter((t) => t.matched).length, [tiles]);
+  const [lock, setLock] = useState(false);
 
   function deal() {
     const picked = [...words].sort(() => Math.random() - 0.5).slice(0, 6);
@@ -236,25 +282,25 @@ function MatchMode({ words }: { words: Word[] }) {
       { key: i * 2 + 1, wordId: w.id, label: w.vi, lang: 'vi' as const, matched: false, open: false },
     ]).sort(() => Math.random() - 0.5);
     setTiles(deck);
-    setFirst(null); setMoves(0); setSeconds(0); setWon(false); lock.current = false;
-    if (timer.current) clearInterval(timer.current);
-    timer.current = setInterval(() => setSeconds((s) => s + 1), 1000);
+    setFirst(null); setMoves(0); setSeconds(0); setWon(false); setLock(false);
   }
 
   useEffect(() => {
     deal();
-    return () => { if (timer.current) clearInterval(timer.current); };
   }, [words.length]);
 
   useEffect(() => {
-    if (tiles.length > 0 && matchedCount === tiles.length) {
-      setWon(true);
-      if (timer.current) clearInterval(timer.current);
-    }
-  }, [matchedCount, tiles.length]);
+    if (won) return;
+    const timer = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => clearInterval(timer);
+  }, [words.length, won]);
+
+  useEffect(() => {
+    if (tiles.length > 0 && tiles.every((t) => t.matched)) setWon(true);
+  }, [tiles]);
 
   function flip(key: number) {
-    if (lock.current || won) return;
+    if (lock || won) return;
     const tile = tiles.find((t) => t.key === key);
     if (!tile || tile.matched || tile.open) return;
     const opened = tiles.map((t) => (t.key === key ? { ...t, open: true } : t));
@@ -269,21 +315,22 @@ function MatchMode({ words }: { words: Word[] }) {
       setTiles(opened.map((t) => (t.key === key || t.key === first ? { ...t, matched: true } : t)));
       setFirst(null);
     } else {
-      lock.current = true;
+      setLock(true);
       setTiles(opened);
       setTimeout(() => {
         setTiles((prev) => prev.map((t) => (t.key === key || t.key === first ? { ...t, open: false } : t)));
         setFirst(null);
-        lock.current = false;
+        setLock(false);
       }, 600);
     }
   }
 
+  const matchedPairs = tiles.filter((t) => t.matched).length / 2;
   const fmt = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
   return (
     <div>
-      <p>⏱️ {fmt} — 👆 {moves} lượt lật — ✅ {matchedCount / 2}/6 cặp</p>
+      <p>⏱️ {fmt} — 👆 {moves} lượt lật — ✅ {matchedPairs}/6 cặp</p>
       {won ? (
         <div>
           <div className="score-banner">🎉 Xong trong {fmt}!<br />{moves} lượt lật</div>

@@ -9,8 +9,7 @@ export const metadata = {
 const links = [
   ['Trang chủ', '/'],
   ['Từ điển', '/dictionary'],
-  ['Flashcards', '/flashcards'],
-  ['Card Blast', '/blast'],
+  ['Luyện tập', '/flashcards'],
   ['Quiz', '/quiz'],
   ['Tiến độ', '/progress'],
 ] as const;
