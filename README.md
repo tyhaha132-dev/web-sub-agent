@@ -1,94 +1,158 @@
-# web-sub-agent
+# 🤖 web-sub-agent
 
-Hệ thống pipeline tự động sinh web app full-stack bằng 3 AI sub-agent:
+![Node](https://img.shields.io/badge/node-22-green)
+![Python](https://img.shields.io/badge/python-3.12-blue)
+![PostgreSQL](https://img.shields.io/badge/postgres-16-blue)
+![Next.js](https://img.shields.io/badge/next.js-14-black)
+![FastAPI](https://img.shields.io/badge/fastapi-0.115-teal)
+![License](https://img.shields.io/badge/license-MIT-yellow)
 
-| Agent    | Model                                      | Việc                                 |
-| -------- | ------------------------------------------ | ------------------------------------ |
-| Planner  | `opencode/nemotron-3-ultra-free`           | Lập kế hoạch hiện thực từ yêu cầu    |
-| Coder    | `opencode/muse-spark-1.3-contributor-free` | Viết code frontend + backend         |
-| Reviewer | `opencode/mimo-v2.6-flash-free`            | Review và quyết định approve / retry |
+> Pipeline tự động sinh **web app full-stack** bằng 3 AI sub-agent:
+> **Planner** lập kế hoạch → **Coder** viết code → **Reviewer** duyệt và quyết định.
 
-Stack chuẩn của app được sinh: **Next.js (frontend) + FastAPI (backend) + PostgreSQL (database)**.
-Thiếu binary `opencode` thì pipeline tự fallback (kế hoạch mẫu, giữ code workspace, duyệt theo test) nên vẫn chạy được.
+Stack chuẩn của app được sinh: **Next.js** (frontend) + **FastAPI** (backend) + **PostgreSQL** (database).
 
-## Pipeline
+## 📑 Mục lục
 
+- [Tính năng](#-tính-năng)
+- [Kiến trúc pipeline](#-kiến-trúc-pipeline)
+- [Bắt đầu nhanh](#-bắt-đầu-nhanh)
+- [Tạo web mới](#-tạo-web-mới)
+- [Web mẫu: EnglishFun](#-web-mẫu-englishfun)
+- [API reference](#-api-reference)
+- [Database](#-database)
+- [Scripts](#-scripts)
+- [Bảo mật](#-bảo-mật)
+- [Deploy](#-deploy)
+- [Nguyên tắc làm việc](#-nguyên-tắc-làm-việc)
+
+## ✨ Tính năng
+
+- 🔄 Pipeline 10 trạng thái với **retry tự động** (`DECIDING` quay về `CODING`, tối đa `PIPELINE_MAX_ITERATIONS` lần)
+- 🧠 3 role agent tách biệt, cấu hình model tập trung ở `src/config/models.ts`
+- 🛡️ Không có binary `opencode` vẫn chạy được nhờ **fallback**: kế hoạch mẫu, giữ code workspace, duyệt theo kết quả test
+- 🐘 Database bắt buộc: tự tạo DB → chạy migration `*.sql` → seed dữ liệu
+- ✅ Test gate: build production Next.js + kiểm tra Postgres trước khi approve
+- 🪟 Chạy ổn trên Windows (`npm.cmd`, `shell: true`, `NODE_ENV=production` khi build)
+
+## 🧩 Kiến trúc pipeline
+
+```mermaid
+flowchart LR
+    A[STARTING] --> B[ANALYZING]
+    B --> C[ENVIRONMENT_SETUP<br/>copy templates + install deps]
+    C --> D[PLANNING<br/>planner agent]
+    D --> E[PLAN_VALIDATING]
+    E --> F[CODING<br/>coder agent]
+    F --> G[DATABASE_SETUP<br/>migrate + seed]
+    G --> H[TESTING<br/>build + db check]
+    H --> I[REVIEWING<br/>reviewer agent]
+    I --> J{DECIDING}
+    J -->|approve| K([COMPLETED])
+    J -->|retry| F
+    J -->|fail| L([FAILED])
 ```
-STARTING → ANALYZING → ENVIRONMENT_SETUP → PLANNING → PLAN_VALIDATING
-  → CODING → DATABASE_SETUP → TESTING → REVIEWING → DECIDING → COMPLETED
-```
 
-- `DECIDING` cho `approve` (xong) hoặc `retry` về `CODING` (tối đa `PIPELINE_MAX_ITERATIONS`).
-- `ENVIRONMENT_SETUP`: copy `templates/` vào workspace (giữ file cũ để retry), `npm install` + `pip install`.
-- `DATABASE_SETUP` (bắt buộc Postgres): tạo DB → chạy `*.sql` trong `backend/migrations` → seed demo.
-- `TESTING`: `npm run build` frontend (với `NODE_ENV=production`) + kiểm tra Postgres.
-- Mỗi workspace nằm ở `workspaces/<pipeline-id>/{frontend,backend}`, artifacts ở `artifacts/pipelines/`.
+Mỗi workspace sinh ra nằm ở `workspaces/<pipeline-id>/{frontend,backend}`, artifact ở `artifacts/pipelines/`.
 
-## Yêu cầu
+## 🚀 Bắt đầu nhanh
 
-- Node.js 22+, Python 3.12+ (có `pip`), PostgreSQL đang chạy
-- Không bắt buộc: CLI `opencode` (có thì Planner/Coder/Reviewer chạy thật)
-
-## Cài đặt & chạy
+**Yêu cầu:** Node.js 22+, Python 3.12+ (`pip`), PostgreSQL đang chạy. Không bắt buộc CLI `opencode`.
 
 ```powershell
 copy .env.example .env   # sửa POSTGRES_PASSWORD cho đúng
 npm install
-npm start -- "<mô tả web>" --id <ten-web>
+npm run check            # typecheck + unit test
 ```
 
-Ví dụ:
+## 🆕 Tạo web mới
 
 ```powershell
+npm start -- "<mô tả web>" --id <ten-web>
+# ví dụ:
 npm start -- "English learning app" --id english-1
 ```
 
-Lệnh hữu ích:
+Pipeline sẽ scaffold code từ `templates/`, cài deps, migrate + seed DB, build, test và báo `COMPLETED` kèm đường dẫn `frontend`/`backend`.
 
-| Lệnh               | Ý nghĩa                                     |
-| ------------------ | ------------------------------------------- |
-| `npm run check`    | `typecheck` + unit test                     |
-| `npm run db`       | Xem database (`words 50`, `quiz`, `tables`) |
-| `npx tsx shots.ts` | Chụp màn hình kiểm tra UI                   |
+## 📚 Web mẫu: EnglishFun
 
-## Cấu trúc
+Web luyện tiếng Anh phong cách IELTS (`workspaces/english-1`, tiếng Việt, 302 từ, 6 chủ đề).
 
-```
-src/
-  agents/          # planner / coder / reviewer + factory, service, executor
-  application/     # create-pipeline.ts (nối DB thật, tester thật)
-  artifacts/       # đọc/ghi artifact theo pipeline
-  config/          # config.ts, models.ts (3 model), paths.ts
-  contracts/       # pipeline, agent, project, database, tester, review
-  errors/          # mã lỗi, phân loại, chính sách retry
-  git/             # git + checkpoint
-  infrastructure/  # environment, database (health, migrate, seed), services
-  logging/         # logger, pipeline-logger, audit-logger
-  orchestrator/    # state-machine, steps (9 step), iteration, runner
-  planner/         # plan-schema, validator, acceptance-criteria
-  project/         # analyzer, manifest, detectors, validator
-  runtime/         # process-runner, opencode-runner, timeout
-  tester/          # tester + checks (build/typecheck/lint/unit/api/db/...) + health
-  workspace/       # manager, lock, cleaner, layout
-templates/         # mẫu frontend Next.js + backend FastAPI + migration
-workspaces/<id>/   # web được sinh ra (không commit)
-tests/             # unit + integration + fixtures
-docs/              # architecture, decisions, development
+| Trang        | Chức năng                                                              |
+|--------------|------------------------------------------------------------------------|
+| 🏠 Trang chủ | Hero + thẻ kỹ năng màu sắc + đếm số từ thật từ DB                      |
+| 🔤 Từ điển   | Tra Anh/Việt, lọc chủ đề, IPA, ví dụ, nút 🔊 phát âm                   |
+| 🃏 Flashcards| Lật thẻ, trộn bài, đếm từ đã thuộc, nghe phát âm                       |
+| 🏆 Quiz      | 10 câu ngẫu nhiên, thanh tiến trình, đúng/sai tô màu, tự lưu điểm      |
+| 📈 Tiến độ   | Số lượt làm, % đúng TB, cấp độ (🌱→🏆), lịch sử điểm                    |
+
+**Chạy thử local:**
+
+```powershell
+# Terminal 1 — backend
+cd workspaces/english-1/backend
+$env:POSTGRES_PASSWORD='<mat-khau-postgres>'
+python -m uvicorn app.main:app --port 8000
+
+# Terminal 2 — frontend
+cd workspaces/english-1/frontend
+npm run dev -- --port 3000
 ```
 
-Nguyên tắc làm việc: xem `AGENTS.md` (feature mới làm trên branch, verify rồi mới merge).
+Mở `http://localhost:3000` → làm Quiz → xem điểm ở Tiến độ.
+
+## 🔌 API reference
+
+Base URL: `http://localhost:8000`
+
+| Method | Endpoint               | Ý nghĩa                       |
+|--------|------------------------|-------------------------------|
+| GET    | `/health`              | Trạng thái + DB (không lộ secret) |
+| GET    | `/api/words?topic=`    | Liệt kê từ theo chủ đề        |
+| GET    | `/api/words/search?q=` | Tra từ Anh/Việt (tối đa 20)   |
+| GET    | `/api/topics`          | Chủ đề + số lượng             |
+| GET    | `/api/quiz/random`     | Đề ngẫu nhiên (`count` 1–50)  |
+| GET/POST | `/api/progress`      | Lịch sử / lưu điểm (validate `score ≤ total`) |
+
+## 🐘 Database
+
+- Schema + seed quản lý bằng file `backend/migrations/*.sql` chạy theo thứ tự tên.
+- Bảng: `words` (`en` UNIQUE, `vi`, `ipa`, `example`, `topic`), `quiz_results`, `health`, `demo_items`.
+- Xem nhanh: `npm run db` (tất cả), `npm run db -- words 50`, `npm run db -- quiz`, `npm run db -- tables`.
+- Migrate workspace bất kỳ (kể cả DB cloud với `POSTGRES_SSL=true`): `npm run db:migrate -- workspaces/english-1`.
+
+## 🛠️ Scripts
+
+| Lệnh              | Ý nghĩa                                              |
+|-------------------|------------------------------------------------------|
+| `npm start`       | Chạy pipeline sinh web                               |
+| `npm run check`   | `typecheck` + unit test                              |
+| `npm run db`      | Xem database                                         |
+| `npm run db:migrate` | Chạy migration (hỗ trợ DB cloud qua `POSTGRES_SSL`) |
+| `npx tsx shots.ts`| Chụp màn hình kiểm tra UI bằng headless Chromium     |
+
+## 🔒 Bảo mật
+
+- Secret chỉ nằm trong `.env` (đã gitignore); repo chỉ chứa `.env.example` mẫu.
+- API công khai ở chế độ đọc; không còn endpoint ghi mở; `/health` không lộ connection string.
+- Mọi SQL đều parameterized; frontend không dùng `dangerouslySetInnerHTML`/`eval`.
+- Khi public: đặt `FRONTEND_URL` đúng domain (CORS), thêm rate-limit ở tầng deploy.
+- Lưu ý: `npm audit` báo Next.js 14 có advisory DoS/cache đã biết — an toàn khi chạy localhost, cân nhắc nâng cấp khi public lớn.
+
+## ☁️ Deploy
+
+Bộ ba miễn phí: **Neon** (Postgres) + **Render** (backend) + **Vercel** (frontend).
+
+1. Neon: tạo project → `npm run db:migrate` với `POSTGRES_*` trỏ sang Neon + `POSTGRES_SSL=true`.
+2. Push repo (thư mục `workspaces/english-1` đã được whitelist trong `.gitignore`, `node_modules`/`.next` vẫn bị loại).
+3. Render: Root Directory `workspaces/english-1/backend`, Build `pip install -r requirements.txt`, Start `uvicorn app.main:app --host 0.0.0.0 --port $PORT`, env `DATABASE_URL` + `FRONTEND_URL`.
+4. Vercel: Root Directory `workspaces/english-1/frontend`, env `NEXT_PUBLIC_API_URL=<url-render>`.
+
+## 📏 Nguyên tắc làm việc
+
+Xem `AGENTS.md`: chức năng mới làm trên **branch riêng**, verify (typecheck + test + chạy thật) rồi mới **merge** vào nhánh chính — không sửa thẳng nhánh chính.
 
 ---
 
-## Trang web mẫu: EnglishFun (`workspaces/english-1`)
-
-Web luyện tiếng Anh phong cách IELTS: hero gradient + thẻ kỹ năng màu sắc, tiếng Việt.
-
-**Tính năng:**
-
-- 🔤 **Từ điển** — tra Anh/Việt, lọc 6 chủ đề (education, environment, technology, health, society, general), phiên âm IPA, ví dụ, nút 🔊 phát âm
-- 🃏 **Flashcards** — lật thẻ, trộn bài, đếm từ đã thuộc, nghe phát âm
-- 🏆 **Quiz** — 10 câu trắc nghiệm ngẫu nhiên từ DB, thanh tiến trình, đúng/sai tô màu, tự lưu điểm
-- 📈 **Tiến độ** — số lượt làm, % đúng trung bình, cấp độ, lịch sử điểm
-
-**Dữ liệu:** 302 từ (20 cơ bản + 30 IELTS + ~152 theo list Oxford 3000), bảng `words`, `quiz_results`.
+ made with pipeline `web-sub-agent` · Planner / Coder / Reviewer
