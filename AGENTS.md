@@ -8,6 +8,12 @@
 4. Chỉ **merge vào nhánh chính khi chức năng đã được xác minh hoạt động**. Nếu lỗi, sửa trên branch hoặc bỏ branch.
 5. Sau merge: chạy lại `npm run check` trên nhánh chính để xác nhận.
 
+## Local trước, GitHub sau
+
+- Mọi tính năng đều phải **phát triển và chạy ổn ở local trước**, rồi mới `push` lên GitHub.
+- Trình tự bắt buộc: code local → `npm run check` xanh → chạy thử local (web mở được, API 200, screenshot không lỗi) → merge `main` → push (Render/Vercel tự deploy theo).
+- Không push code chưa chạy qua ở local để "deploy thử" — deploy chỉ dùng để phát hành bản đã ổn.
+
 ## Các nguyên tắc khác
 
 - Có gì chưa rõ thì **hỏi trước khi đoán**.
