@@ -5,7 +5,7 @@ import { saveProgress, type Word } from '../../lib/api';
 
 type Dir = 'vi-en' | 'en-vi';
 type Diff = 'easy' | 'normal' | 'hard';
-type Phase = 'setup' | 'playing' | 'won' | 'lost';
+type Phase = 'setup' | 'ready' | 'playing' | 'won' | 'lost';
 
 const WORDS_PER_GAME = 20;
 const MAX_LIVES = 3;
@@ -177,6 +177,15 @@ export default function BlastGame({ words }: { words: Word[] }) {
   const [diff, setDiff] = useState<Diff>('hard');
   const [speedSetting, setSpeedSetting] = useState(3);
   const [snap, setSnap] = useState<Snap>(() => freshSnap(0));
+  const [count, setCount] = useState(3);
+  const [streak, setStreak] = useState(0);
+  const [best, setBest] = useState(() => {
+    try {
+      return Number(window.localStorage.getItem('blast-best') ?? 0) || 0;
+    } catch {
+      return 0;
+    }
+  });
   const snapRef = useRef(snap);
   snapRef.current = snap;
   const wordsRef = useRef<Word[]>(words);
@@ -225,16 +234,49 @@ export default function BlastGame({ words }: { words: Word[] }) {
     }
   }, [snap.phase, snap.blasted]);
 
+  const prevRef = useRef({ blasted: 0, lives: MAX_LIVES });
+  useEffect(() => {
+    const p = prevRef.current;
+    if (snap.blasted > p.blasted) setStreak((s) => s + 1);
+    if (snap.lives < p.lives) setStreak(0);
+    prevRef.current = { blasted: snap.blasted, lives: snap.lives };
+  }, [snap.blasted, snap.lives]);
+
+  useEffect(() => {
+    setBest((b) => {
+      const nb = Math.max(b, streak);
+      try {
+        window.localStorage.setItem('blast-best', String(nb));
+      } catch {
+        /* bỏ qua */
+      }
+      return nb;
+    });
+  }, [streak]);
+
+  useEffect(() => {
+    if (phase !== 'ready') return;
+    if (count <= 0) {
+      savedRef.current = false;
+      setSnap(freshSnap(performance.now()));
+      prevRef.current = { blasted: 0, lives: MAX_LIVES };
+      setStreak(0);
+      setPhase('playing');
+      return;
+    }
+    const t = setTimeout(() => setCount((c) => c - 1), 700);
+    return () => clearTimeout(t);
+  }, [phase, count]);
+
   function start() {
     if (words.length === 0) return;
-    savedRef.current = false;
-    setSnap(freshSnap(performance.now()));
-    setPhase('playing');
+    setCount(3);
+    setPhase('ready');
   }
 
   if (phase === 'setup') {
     return (
-      <div className="blast-wrap">
+      <div className="blast-wrap blast-breakout">
         <div className="blast-sun">🌞</div>
         <h2 className="blast-title">💥 Card Blast</h2>
         <p className="blast-sub">
@@ -293,16 +335,32 @@ export default function BlastGame({ words }: { words: Word[] }) {
 
   const target = snap.floaters.find((f) => f.id === snap.targetId) ?? null;
   const nowMs = typeof performance !== 'undefined' ? performance.now() : 0;
+  const diffLabel = diff === 'easy' ? 'DỄ' : diff === 'normal' ? 'BÌNH THƯỜNG' : 'SIÊU KHÓ';
+
+  if (phase === 'ready') {
+    return (
+      <div className="blast-wrap blast-breakout">
+        <div className="blast-arena blast-arena-tall">
+          <div className="blast-count">
+            <b>{count}</b>
+            <span>SẴN SÀNG — GÕ TỪ TIẾNG ANH</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="blast-wrap">
-      <div className="blast-hud">
-        <span>❤ {'❤'.repeat(Math.max(snap.lives, 0))}{'🤍'.repeat(Math.max(MAX_LIVES - snap.lives, 0))}</span>
-        <span>⭐ {snap.score}</span>
-        <span>🎖️ Cấp {snap.level}</span>
-        <span>💥 {snap.blasted}/{WORDS_PER_GAME}</span>
+    <div className="blast-wrap blast-breakout">
+      <div className="blast-topbar">
+        <div className="tb"><small>ĐIỂM</small><b className="gold">{snap.score}</b></div>
+        <div className="tb"><small>CẤP</small><b>{snap.level}</b></div>
+        <div className="tb"><small>CHUỖI · KỶ LỤC {best}</small><b>🔥 {streak} liên tục</b></div>
+        <div className="spacer" />
+        <span className="blast-mode-badge">{diffLabel} · TỐC ĐỘ {speedSetting}</span>
+        <span className="blast-hearts">{'❤'.repeat(Math.max(snap.lives, 0))}{'🤍'.repeat(Math.max(MAX_LIVES - snap.lives, 0))}</span>
       </div>
-      <div className="blast-arena">
+      <div className="blast-arena blast-arena-tall">
         {snap.floaters.map((f) => {
           const isTarget = f.id === snap.targetId;
           const typedLen = isTarget ? snap.buffer.length : 0;
@@ -323,15 +381,16 @@ export default function BlastGame({ words }: { words: Word[] }) {
         {snap.booms.map((b) => (
           <div key={b.id} className="floater-boom" style={{ left: `${b.x}%`, top: `${Math.max(b.y, 0)}%` }}>💥</div>
         ))}
-        <div className="blast-ground">ĐÁY — đừng để lọt!</div>
+        <div className="blast-ground">ĐÁY — đừng để lọt! 💥 {snap.blasted}/{WORDS_PER_GAME}</div>
       </div>
-      <div className="blast-buffer">
-        {snap.buffer || <span className="blast-buffer-empty">gõ đáp án… (không cần Enter)</span>}
+      <div className="blast-cannon">🌞</div>
+      <div className="blast-inputbox">
+        {snap.buffer || <span className="ph">Gõ đáp án…</span>}
       </div>
       {(snap.phase === 'won' || snap.phase === 'lost') && (
         <div className="blast-end">
           <h2>{snap.phase === 'won' ? `🏆 Thắng! ${snap.score} điểm` : `💀 Thua rồi! ${snap.blasted}/${WORDS_PER_GAME} từ`}</h2>
-          <button className="blast-play" onClick={() => { savedRef.current = false; setSnap(freshSnap(performance.now())); }}>🔁 Chơi lại</button>
+          <button className="blast-play" onClick={() => { savedRef.current = false; setStreak(0); prevRef.current = { blasted: 0, lives: MAX_LIVES }; setSnap(freshSnap(performance.now())); }}>🔁 Chơi lại</button>
           <button className="btn btn-ghost" onClick={() => setPhase('setup')}>⚙️ Đổi chế độ</button>
         </div>
       )}
