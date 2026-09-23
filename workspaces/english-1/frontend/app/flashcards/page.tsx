@@ -130,6 +130,12 @@ function FlipMode({ words }: { words: Word[] }) {
   );
 }
 
+function maskAnswer(example: string, answer: string): string {
+  if (!example || !answer) return example;
+  const escaped = answer.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return example.replace(new RegExp(escaped, 'gi'), '___');
+}
+
 function WriteMode({ words }: { words: Word[] }) {
   const [order, setOrder] = useState<Word[]>(words);
   const [index, setIndex] = useState(0);
@@ -176,7 +182,7 @@ function WriteMode({ words }: { words: Word[] }) {
       <p>Câu {done + 1}/{total} — ⭐ {score} đúng</p>
       <div className="panel">
         <h2 style={{ margin: '0 0 4px' }}>{card.vi} <span className="badge">{card.topic}</span></h2>
-        <p style={{ color: '#6b7280' }}>{card.example}</p>
+        <p style={{ color: '#6b7280' }}>{maskAnswer(card.example, card.en)}</p>
         <form className="search-row" onSubmit={submit}>
           <input value={value} onChange={(e) => setValue(e.target.value)} placeholder="Gõ từ tiếng Anh..." autoFocus />
           <button className="btn btn-primary" type="submit">OK</button>
