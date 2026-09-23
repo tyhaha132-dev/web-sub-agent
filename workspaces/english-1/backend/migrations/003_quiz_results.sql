@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS quiz_results (
+    id SERIAL PRIMARY KEY,
+    score INTEGER NOT NULL,
+    total INTEGER NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

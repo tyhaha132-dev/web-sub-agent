@@ -1,0 +1,29 @@
+{
+  "name": "web-sub-agent",
+  "version": "1.0.0",
+  "description": "Web sub-agent pipeline: Planner -> Coder -> Reviewer for Next.js + FastAPI + PostgreSQL",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run --exclude tests/integration/**",
+    "test:ai": "vitest run tests/integration",
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test:watch": "vitest",
+    "start": "tsx src/index.ts",
+    "db": "tsx db-view.ts",
+    "db:migrate": "tsx db-migrate.ts",
+    "check": "npm run typecheck && npm run test"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "@types/pg": "^8.23.1",
+    "playwright-core": "^1.63.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.2",
+    "pg": "^8.23.0"
+  }
+}

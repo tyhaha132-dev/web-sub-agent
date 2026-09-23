@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS health (
+    id SERIAL PRIMARY KEY,
+    status TEXT NOT NULL,
+    checked_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

@@ -1,0 +1,22 @@
+INSERT INTO words (en, vi, example) VALUES
+  ('apple', 'quả táo', 'I eat an apple every day.'),
+  ('book', 'quyển sách', 'She is reading a book.'),
+  ('water', 'nước', 'Drink more water.'),
+  ('house', 'ngôi nhà', 'Their house is big.'),
+  ('friend', 'bạn bè', 'He is my best friend.'),
+  ('learn', 'học', 'I want to learn English.'),
+  ('language', 'ngôn ngữ', 'Vietnamese is my native language.'),
+  ('computer', 'máy tính', 'Turn on the computer.'),
+  ('school', 'trường học', 'The school starts at 7am.'),
+  ('teacher', 'giáo viên', 'Our teacher is kind.'),
+  ('beautiful', 'đẹp', 'The garden is beautiful.'),
+  ('quickly', 'nhanh chóng', 'She runs quickly.'),
+  ('important', 'quan trọng', 'English is important for work.'),
+  ('journey', 'hành trình', 'The journey was long.'),
+  ('knowledge', 'kiến thức', 'Knowledge is power.'),
+  ('example', 'ví dụ', 'Give me an example.'),
+  ('question', 'câu hỏi', 'Ask me a question.'),
+  ('answer', 'câu trả lời', 'Write your answer here.'),
+  ('practice', 'luyện tập', 'Practice makes perfect.'),
+  ('success', 'thành công', 'Hard work leads to success.')
+ON CONFLICT (en) DO NOTHING;

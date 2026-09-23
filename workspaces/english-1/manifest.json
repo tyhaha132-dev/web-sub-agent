@@ -1,0 +1,5 @@
+{
+  "frontend": "nextjs",
+  "backend": "fastapi",
+  "database": "postgres"
+}

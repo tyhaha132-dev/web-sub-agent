@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS words (
+    id SERIAL PRIMARY KEY,
+    en TEXT NOT NULL UNIQUE,
+    vi TEXT NOT NULL,
+    example TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
