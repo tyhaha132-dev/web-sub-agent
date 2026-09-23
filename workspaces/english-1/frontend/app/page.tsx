@@ -5,7 +5,7 @@ import { API_BASE } from '../lib/api';
 
 const cards = [
   { href: '/dictionary', icon: '🔤', cls: 'sk-blue', title: 'Từ điển', desc: 'Tra nghĩa, phiên âm, ví dụ theo chủ đề', count: '50+ TỪ' },
-  { href: '/flashcards', icon: '🃏', cls: 'sk-pink', title: 'Flashcards', desc: 'Lật thẻ Anh ↔ Việt, nghe phát âm', count: 'HỌC NHANH' },
+  { href: '/flashcards', icon: '🃏', cls: 'sk-pink', title: 'Luyện tập', desc: '4 chế độ: lật thẻ, điền từ, nghe–chép, ghép cặp', count: 'HỌC NHANH' },
   { href: '/quiz', icon: '🏆', cls: 'sk-orange', title: 'Quiz', desc: '10 câu trắc nghiệm, lưu điểm tự động', count: 'THỬ SỨC' },
   { href: '/progress', icon: '📈', cls: 'sk-green', title: 'Tiến độ', desc: 'Lịch sử điểm và tỉ lệ đúng của bạn', count: 'THEO DÕI' },
   { href: '/dictionary?topic=environment', icon: '🌍', cls: 'sk-teal', title: 'Môi trường', desc: 'Từ vựng IELTS chủ đề environment', count: 'IELTS' },
