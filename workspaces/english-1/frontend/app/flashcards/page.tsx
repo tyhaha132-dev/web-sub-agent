@@ -201,7 +201,7 @@ function WriteMode({ words }: { words: Word[] }) {
       <p>Câu {done + 1}/{total} — ⭐ {score} đúng</p>
       <div className="panel">
         <h2 style={{ margin: '0 0 4px' }}>{card.vi} <span className="badge">{card.topic}</span></h2>
-        <p style={{ color: '#6b7280' }}>{maskAnswer(card.example, card.en)}</p>
+        <p style={{ color: 'var(--muted)' }}>{maskAnswer(card.example, card.en)}</p>
         <form className="search-row" onSubmit={submit}>
           <input value={value} onChange={(e) => setValue(e.target.value)} placeholder="Gõ từ tiếng Anh..." autoFocus />
           <button className="btn btn-primary" type="submit">OK</button>
