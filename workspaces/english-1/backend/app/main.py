@@ -91,13 +91,23 @@ def search_words(q: str = "", topic: str = "") -> dict:
     return {"words": [dict(r) for r in rows], "query": q.strip()}
 
 
-def _http_get(url: str, timeout: int) -> bytes | None:
-    req = urllib.request.Request(url, headers={"User-Agent": "EnglishFun/1.0"})
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return resp.read()
-    except Exception:  # noqa: BLE001 - external API must never break lookup
-        return None
+def _http_get(url: str, timeout: int, label: str) -> bytes | None:
+    """GET with one retry on fast failures. 404/timeout return None immediately."""
+    for attempt in (1, 2):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "EnglishFun/1.0"})
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return resp.read()
+        except urllib.error.HTTPError as exc:
+            print(f"[lookup] {label} HTTP {exc.code} (attempt {attempt})", flush=True)
+            if exc.code == 404:
+                return None
+        except Exception as exc:  # noqa: BLE001 - external API must never break lookup
+            if isinstance(exc, TimeoutError) or isinstance(getattr(exc, "reason", None), TimeoutError):
+                print(f"[lookup] {label} timeout (attempt {attempt})", flush=True)
+                return None
+            print(f"[lookup] {label} {type(exc).__name__}: {exc} (attempt {attempt})", flush=True)
+    return None
 
 
 def _strip_html(s: str) -> str:
@@ -119,7 +129,7 @@ def _english_section(page_html: str) -> str:
 def _fetch_external(word: str) -> dict | None:
     """Fetch English entry from Wiktionary, return normalized dict or None."""
     slug = urllib.parse.quote(word.lower())
-    raw = _http_get(f"{WIKI_BASE}/page/definition/{slug}", WIKI_DEF_TIMEOUT)
+    raw = _http_get(f"{WIKI_BASE}/page/definition/{slug}", WIKI_DEF_TIMEOUT, f"def:{word}")
     if raw is None:
         return None
     try:
@@ -147,7 +157,7 @@ def _fetch_external(word: str) -> dict | None:
         return None
     phonetic = ""
     audio = ""
-    raw_html = _http_get(f"{WIKI_BASE}/page/html/{slug}", WIKI_HTML_TIMEOUT)
+    raw_html = _http_get(f"{WIKI_BASE}/page/html/{slug}", WIKI_HTML_TIMEOUT, f"html:{word}")
     if raw_html is not None:
         try:
             section = _english_section(raw_html.decode("utf-8", errors="replace"))
