@@ -12,6 +12,7 @@ import {
 } from '../../../lib/folders';
 import type { QuizQuestion } from '../../../lib/api';
 import { FlipMode } from '../../flashcards/flip-mode';
+import ExtLinks from '../../ext-links';
 import { WriteMode } from '../../flashcards/write-mode';
 import { ListenMode } from '../../flashcards/listen-mode';
 import { MatchMode } from '../../flashcards/match-mode';
@@ -162,6 +163,7 @@ export default function FolderDetail({ params }: { params: { id: string } }) {
                 </h3>
                 <div className="ipa">{w.ipa ? `${w.ipa} — ` : ''}{w.vi || '(chưa có nghĩa Việt)'}</div>
                 {w.example && <div className="ex">“{w.example}”</div>}
+                {w.source === 'unknown' && <ExtLinks en={w.en} />}
                 <div style={{ marginTop: 8 }}>
                   <button className="btn btn-ghost" onClick={() => removeWord(w.id)}>🗑️ Xóa từ</button>
                 </div>

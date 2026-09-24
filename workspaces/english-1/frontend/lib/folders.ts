@@ -81,33 +81,65 @@ export function parseManual(text: string): string[] {
   return out;
 }
 
-/** Hàng Excel/CSV: cột 1 = từ tiếng Anh, cột 2 (nếu có) = nghĩa Việt. */
-export function rowsToEntries(rows: unknown[][]): Array<{ en: string; vi: string }> {
-  const seen = new Set<string>();
-  const out: Array<{ en: string; vi: string }> = [];
-  // bỏ hàng tiêu đề kiểu "en, vi" / "word, meaning"...
+function normHeader(s: unknown): string {
+  return String(s ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[_\-]+/g, ' ')
+    .replace(/\s+/g, ' ');
+}
+
+const EN_KEYS = ['english', 'en', 'word', 'words', 'vocabulary', 'tu vung', 'tu'];
+const VI_KEYS = ['vietnamese', 'meaning', 'meanings', 'vi', 'nghia', 'nghia tieng viet', 'dinh nghia'];
+const IPA_KEYS = ['pronounce', 'pronunciation', 'ipa', 'phonetic', 'phien am'];
+const EX_KEYS = ['example', 'examples', 'vi du', 'sentence', 'vd'];
+
+export interface ImportEntry {
+  en: string;
+  vi: string;
+  ipa: string;
+  example: string;
+}
+
+/**
+ * Hàng Excel/CSV: nếu hàng đầu là tiêu đề (nhận biết theo tên cột) thì ánh xạ
+ * cột theo tên (english/vietnamese/pronounce/example...); không thì kiểu cũ
+ * (cột 1 = từ, cột 2 = nghĩa nếu có).
+ */
+export function rowsToEntries(rows: unknown[][]): ImportEntry[] {
   const data = rows.filter((r) => Array.isArray(r) && r.length > 0);
-  if (data.length > 0) {
-    const h0 = String(data[0][0] ?? '').trim().toLowerCase();
-    if (['en', 'english', 'word', 'words', 'vocabulary', 'tu', 'tu vung'].includes(h0)) {
-      data.shift();
-    }
+  let enIdx = 0;
+  let viIdx = 1;
+  let ipaIdx = -1;
+  let exIdx = -1;
+  if (data.length > 0 && EN_KEYS.includes(normHeader(data[0][0]))) {
+    const heads = (data[0] as unknown[]).map(normHeader);
+    const at = (keys: string[]) => heads.findIndex((h) => keys.includes(h));
+    viIdx = at(VI_KEYS);
+    ipaIdx = at(IPA_KEYS);
+    exIdx = at(EX_KEYS);
+    data.shift();
   }
+  const seen = new Set<string>();
+  const out: ImportEntry[] = [];
   for (const row of data) {
     if (!Array.isArray(row) || row.length === 0) continue;
-    const en = cleanToken(String(row[0] ?? ''));
+    const en = cleanToken(String(row[enIdx] ?? ''));
     if (!en) continue;
     const key = en.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    const vi = row.length > 1 ? String(row[1] ?? '').trim().slice(0, 200) : '';
-    out.push({ en, vi });
+    const cell = (i: number, max: number) =>
+      i >= 0 && row.length > i ? String(row[i] ?? '').trim().slice(0, max) : '';
+    out.push({ en, vi: cell(viIdx, 200), ipa: cell(ipaIdx, 100), example: cell(exIdx, 500) });
     if (out.length >= MAX_IMPORT_WORDS) break;
   }
   return out;
 }
 
-export function makeFolder(name: string, entries: Array<{ en: string; vi: string }>): Folder {
+export function makeFolder(name: string, entries: ImportEntry[]): Folder {
   const base = Date.now();
   return {
     id: uid(),
@@ -117,8 +149,8 @@ export function makeFolder(name: string, entries: Array<{ en: string; vi: string
       id: base + i,
       en: e.en,
       vi: e.vi,
-      ipa: '',
-      example: '',
+      ipa: e.ipa,
+      example: e.example,
       source: 'pending' as FolderWordSource,
     })),
     status: {},
@@ -146,18 +178,18 @@ export async function enrichPending(
           const d = r.words[0];
           onUpdate(w.en, {
             vi: w.vi || d.vi,
-            ipa: d.ipa,
-            example: d.example || w.example,
+            ipa: w.ipa || d.ipa,
+            example: w.example || d.example,
             source: 'db',
           });
         } else if (r.source === 'external' && r.external) {
           const e = r.external;
           const first = e.meanings[0];
           onUpdate(w.en, {
-            ipa: e.phonetic || w.ipa,
-            example: first
+            ipa: w.ipa || e.phonetic,
+            example: w.example || (first
               ? `${first.pos ? `${first.pos}: ` : ''}${first.definition}${first.example ? ` — “${first.example}”` : ''}`
-              : w.example,
+              : ''),
             source: 'external',
           });
         } else {

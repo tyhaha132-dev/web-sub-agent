@@ -35,3 +35,14 @@ Date: 2026-09-24 | Status: user đã duyệt 4 phần (kiến trúc, làm giàu,
 - `npm run check` + `tsc` frontend + chạy local: import tay/xlsx/csv thật,
   screenshot (danh sách, modal, chi tiết, luyện tập, cả 2 theme), không lỗi trang.
 - Không migration, không env mới, backend giữ nguyên 100%.
+
+## Bổ sung 2026-09-24 (pm): import file nhiều cột + Oxford fallback
+
+- `rowsToEntries` ánh xạ cột theo hàng tiêu đề (`english`→từ,
+  `vietnamese`/`meaning`→nghĩa, `pronounce`/`ipa`→phiên âm, `example`→ví dụ);
+  file không tiêu đề giữ kiểu cũ (cột 1 từ, cột 2 nghĩa). Làm giàu chỉ điền
+  chỗ trống, không ghi đè dữ liệu file.
+- Backend `/lookup`: nhận cụm từ có dấu cách (tối đa 60 ký tự); chuỗi dự phòng
+  Wiktionary → Oxford Learner's (cào `span.def`/`phon`/`x`, nghĩa Anh only).
+- Từ vẫn vô danh: card hiện link "Tra thêm: Oxford · Cambridge · Google"
+  (trang Từ điển + chi tiết thư mục).

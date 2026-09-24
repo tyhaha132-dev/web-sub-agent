@@ -77,7 +77,17 @@ export async function searchWords(q: string, topic = ''): Promise<Word[]> {
   }
 }
 
-export const SINGLE_WORD_RE = /^[A-Za-z][A-Za-z\-']*$/;
+export const SINGLE_WORD_RE = /^[A-Za-z][A-Za-z\s\-']*$/;
+export const MAX_LOOKUP_LEN = 60;
+
+export function extSearchLinks(en: string): { oxford: string; cambridge: string; google: string } {
+  const slug = en.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '');
+  return {
+    oxford: `https://www.oxfordlearnersdictionaries.com/definition/english/${slug}`,
+    cambridge: `https://dictionary.cambridge.org/dictionary/english/${slug}`,
+    google: `https://www.google.com/search?q=${encodeURIComponent(en + ' nghĩa tiếng Việt')}`,
+  };
+}
 
 export async function lookupWord(en: string): Promise<LookupResult | null> {
   try {

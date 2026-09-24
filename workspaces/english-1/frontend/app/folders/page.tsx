@@ -12,6 +12,7 @@ import {
   rowsToEntries,
   saveFolders,
   type Folder,
+  type ImportEntry,
 } from '../../lib/folders';
 
 export default function Folders() {
@@ -115,7 +116,7 @@ export default function Folders() {
 function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: (f: Folder) => void }) {
   const [tab, setTab] = useState<'manual' | 'excel'>('manual');
   const [text, setText] = useState('');
-  const [entries, setEntries] = useState<Array<{ en: string; vi: string }>>([]);
+  const [entries, setEntries] = useState<ImportEntry[]>([]);
   const [checked, setChecked] = useState(false);
   const [skipped, setSkipped] = useState(0);
   const [fileName, setFileName] = useState('');
@@ -125,7 +126,7 @@ function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: (f: F
   function checkManual() {
     const parts = text.split(/[\n,;]+/).filter((p) => p.trim() !== '');
     const list = parseManual(text);
-    setEntries(list.map((en) => ({ en, vi: '' })));
+    setEntries(list.map((en) => ({ en, vi: '', ipa: '', example: '' })));
     setSkipped(parts.length - list.length);
     setChecked(true);
     setError('');
