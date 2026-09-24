@@ -1,19 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import * as XLSX from 'xlsx';
 import {
-  MAX_FILE_BYTES,
-  MAX_IMPORT_WORDS,
   knownCount,
   loadFolders,
   makeFolder,
-  parseManualPair,
-  rowsToEntries,
   saveFolders,
   type Folder,
   type ImportEntry,
 } from '../../lib/folders';
+import ImportModal from './import-modal';
 
 export default function Folders() {
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -105,149 +101,11 @@ export default function Folders() {
       })}
       {showImport && (
         <ImportModal
+          mode="new"
           onClose={() => setShowImport(false)}
-          onSaved={(f) => { persist([f, ...folders]); setShowImport(false); }}
+          onSaveEntries={(entries, name) => { persist([makeFolder(name || 'Thư mục mới', entries), ...folders]); setShowImport(false); }}
         />
       )}
     </main>
-  );
-}
-
-function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: (f: Folder) => void }) {
-  const [tab, setTab] = useState<'manual' | 'excel'>('manual');
-  const [enText, setEnText] = useState('');
-  const [viText, setViText] = useState('');
-  const [entries, setEntries] = useState<ImportEntry[]>([]);
-  const [checked, setChecked] = useState(false);
-  const [skipped, setSkipped] = useState(0);
-  const [fileName, setFileName] = useState('');
-  const [error, setError] = useState('');
-  const [folderName, setFolderName] = useState('');
-
-  function checkManual() {
-    const { entries: list, skipped } = parseManualPair(enText, viText);
-    setEntries(list);
-    setSkipped(skipped);
-    setChecked(true);
-    setError('');
-  }
-
-  async function onFile(file: File) {
-    setError('');
-    setChecked(false);
-    if (file.size > MAX_FILE_BYTES) {
-      setError('File quá lớn (tối đa 2MB).');
-      return;
-    }
-    try {
-      const buf = await file.arrayBuffer();
-      const wb = XLSX.read(buf);
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      if (!sheet) {
-        setError('File không có sheet nào.');
-        return;
-      }
-      const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '' });
-      const list = rowsToEntries(rows);
-      if (list.length === 0) {
-        setError('Không đọc được từ nào (cột đầu phải là từ tiếng Anh).');
-        return;
-      }
-      setEntries(list);
-      setSkipped(Math.max(rows.length - list.length, 0));
-      setFileName(file.name);
-      setChecked(true);
-    } catch {
-      setError('Không đọc được file (chỉ hỗ trợ .xlsx, .csv).');
-    }
-  }
-
-  function save() {
-    if (entries.length === 0) return;
-    onSaved(makeFolder(folderName || fileName.replace(/\.[^.]+$/, '') || 'Thư mục mới', entries));
-  }
-
-  return (
-    <div
-      onClick={onClose}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
-    >
-      <div className="panel" onClick={(e) => e.stopPropagation()} style={{ marginTop: 0, width: 'min(560px, 100%)', maxHeight: '90vh', overflowY: 'auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={{ margin: 0 }}>⬇️ Import từ vựng</h2>
-          <button className="btn btn-ghost" onClick={onClose}>✕</button>
-        </div>
-        <div className="topic-row">
-          <button className={`topic-chip ${tab === 'manual' ? 'active' : ''}`} onClick={() => { setTab('manual'); setChecked(false); setError(''); }}>Nhập tay (Manual)</button>
-          <button className={`topic-chip ${tab === 'excel' ? 'active' : ''}`} onClick={() => { setTab('excel'); setChecked(false); setError(''); }}>Tải file Excel</button>
-        </div>
-        {tab === 'manual' ? (
-          <>
-            <p>Nhập từ tiếng Anh bên trái, nghĩa Việt bên phải (từng dòng tương ứng).
-              Ô Anh cũng chấp nhận kiểu “hello : xin chào”. Tối đa {MAX_IMPORT_WORDS} từ.</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <div>
-                <div style={{ fontWeight: 700, marginBottom: 4 }}>Tiếng Anh</div>
-                <textarea
-                  value={enText}
-                  onChange={(e) => { setEnText(e.target.value); setChecked(false); }}
-                  placeholder={'hello\napple\nwell-known'}
-                  rows={6}
-                  style={{ width: '100%', borderRadius: 12, padding: 12, fontSize: 15, background: 'var(--input-bg)', color: 'var(--ink)', border: '2px solid var(--border-soft)' }}
-                />
-              </div>
-              <div>
-                <div style={{ fontWeight: 700, marginBottom: 4 }}>Nghĩa Việt</div>
-                <textarea
-                  value={viText}
-                  onChange={(e) => { setViText(e.target.value); setChecked(false); }}
-                  placeholder={'xin chào\nquả táo'}
-                  rows={6}
-                  style={{ width: '100%', borderRadius: 12, padding: 12, fontSize: 15, background: 'var(--input-bg)', color: 'var(--ink)', border: '2px solid var(--border-soft)' }}
-                />
-              </div>
-            </div>
-            <div style={{ marginTop: 12 }}>
-              <button className="btn btn-primary" onClick={checkManual}>🔍 Kiểm tra danh sách</button>
-            </div>
-          </>
-        ) : (
-          <>
-            <label
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) onFile(f); }}
-              style={{ display: 'block', border: '2px dashed var(--border-soft)', borderRadius: 12, padding: 32, textAlign: 'center', cursor: 'pointer' }}
-            >
-              <div style={{ fontSize: 32 }}>⬆️</div>
-              <div><b>Kéo thả hoặc click để chọn file</b></div>
-              <div style={{ color: 'var(--muted)', fontSize: 13 }}>Hỗ trợ: .xlsx, .csv (Tối đa {MAX_IMPORT_WORDS} từ, 2MB)</div>
-              <input
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                style={{ display: 'none' }}
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ''; }}
-              />
-            </label>
-            {fileName && <p>📄 {fileName}</p>}
-          </>
-        )}
-        {error && <p style={{ color: '#dc2626' }}>{error}</p>}
-        {checked && (
-          <div className="word-card">
-            <div><b>{entries.length}</b> từ hợp lệ{skipped > 0 && <span> · bỏ qua {skipped} dòng rác/trùng</span>}</div>
-            <div className="ipa">{entries.slice(0, 10).map((e) => (e.vi ? `${e.en} — ${e.vi}` : e.en)).join(' · ')}{entries.length > 10 ? '…' : ''}</div>
-            <div style={{ marginTop: 12 }}>
-              <input
-                value={folderName}
-                onChange={(e) => setFolderName(e.target.value)}
-                placeholder="Tên thư mục (để trống = tự đặt)"
-                style={{ width: '100%', borderRadius: 10, padding: '8px 12px', marginBottom: 8, background: 'var(--input-bg)', color: 'var(--ink)', border: '2px solid var(--border-soft)' }}
-              />
-              <button className="btn btn-primary" onClick={save}>💾 Lưu vào thư mục</button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
   );
 }

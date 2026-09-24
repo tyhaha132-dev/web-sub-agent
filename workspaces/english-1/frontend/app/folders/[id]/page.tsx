@@ -17,6 +17,8 @@ import { WriteMode } from '../../flashcards/write-mode';
 import { ListenMode } from '../../flashcards/listen-mode';
 import { MatchMode } from '../../flashcards/match-mode';
 import BlastGame from '../../flashcards/blast-game';
+import ImportModal from '../import-modal';
+import { MAX_FOLDER_WORDS, type ImportEntry } from '../../../lib/folders';
 
 type Tab = 'words' | 'flip' | 'write' | 'listen' | 'match' | 'blast' | 'quiz';
 
@@ -25,6 +27,7 @@ export default function FolderDetail({ params }: { params: { id: string } }) {
   const [folder, setFolder] = useState<Folder | null>(null);
   const [missing, setMissing] = useState(false);
   const [tab, setTab] = useState<Tab>('words');
+  const [showAppend, setShowAppend] = useState(false);
 
   useEffect(() => {
     const f = loadFolders().find((x) => x.id === id) ?? null;
@@ -80,6 +83,19 @@ export default function FolderDetail({ params }: { params: { id: string } }) {
     } else {
       playAudio(null, w.en);
     }
+  }
+
+  function appendEntries(entries: ImportEntry[]) {
+    if (!folder || entries.length === 0) return;
+    const have = new Set(folder.words.map((w) => w.en.toLowerCase()));
+    const base = Date.now();
+    const fresh = entries
+      .filter((e) => !have.has(e.en.toLowerCase()))
+      .slice(0, Math.max(MAX_FOLDER_WORDS - folder.words.length, 0))
+      .map((e, i) => ({ id: base + i, en: e.en, vi: e.vi, ipa: e.ipa, example: e.example, audio: '' }));
+    if (fresh.length === 0) return;
+    persist({ ...folder, words: [...folder.words, ...fresh] });
+    setShowAppend(false);
   }
   function removeWord(wordId: number) {
     if (!folder) return;
@@ -149,6 +165,9 @@ export default function FolderDetail({ params }: { params: { id: string } }) {
       <h1>📁 {folder.name}</h1>
       <div className="panel">
         <div>{folder.words.length} từ · Đã nhớ {known} · {folder.stats.attempts} lượt quiz</div>
+        <div style={{ marginTop: 8 }}>
+          <button className="btn btn-primary" onClick={() => setShowAppend(true)}>➕ Thêm từ vào thư mục</button>
+        </div>
         <div className="topic-row">
           <button className={`topic-chip ${tab === 'words' ? 'active' : ''}`} onClick={() => setTab('words')}>📝 Từ vựng</button>
           <button className={`topic-chip ${tab === 'flip' ? 'active' : ''}`} onClick={() => setTab('flip')}>🃏 Lật thẻ</button>
@@ -209,6 +228,15 @@ export default function FolderDetail({ params }: { params: { id: string } }) {
       )}
       {tab === 'quiz' && (
         <FolderQuiz key={`${folder.id}-${folder.words.length}`} folder={folder} onDone={recordQuiz} />
+      )}
+      {showAppend && (
+        <ImportModal
+          mode="append"
+          existingCount={folder.words.length}
+          existingKeys={new Set(folder.words.map((w) => w.en.toLowerCase()))}
+          onClose={() => setShowAppend(false)}
+          onSaveEntries={(entries) => appendEntries(entries)}
+        />
       )}
     </main>
   );

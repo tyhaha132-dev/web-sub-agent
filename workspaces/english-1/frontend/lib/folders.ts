@@ -28,6 +28,7 @@ export interface Folder {
 
 export const FOLDERS_KEY = 'englishfun_folders_v1';
 export const MAX_IMPORT_WORDS = 500;
+export const MAX_FOLDER_WORDS = 500;
 export const MAX_FILE_BYTES = 2 * 1024 * 1024;
 const IMPORT_RE = /^[A-Za-z][A-Za-z\s\-']{0,39}$/;
 
