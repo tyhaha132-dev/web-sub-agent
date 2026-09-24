@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { fetchTopics, lookupWord, searchWords, speak, SINGLE_WORD_RE, type ExternalEntry, type Topic, type Word } from '../../lib/api';
+import { fetchTopics, lookupWord, searchWords, speak, SINGLE_WORD_RE, extSearchLinks, type ExternalEntry, type Topic, type Word } from '../../lib/api';
+import ExtLinks from '../ext-links';
 
 export default function Dictionary() {
   const [q, setQ] = useState('');
@@ -71,7 +72,12 @@ export default function Dictionary() {
         </div>
       </div>
       {lookupLoading && <div className="panel">🌐 Đang tra nguồn mở rộng…</div>}
-      {searched && !lookupLoading && results.length === 0 && !external && <div className="panel">😢 Không tìm thấy từ nào. Thử từ khác nhé!</div>}
+      {searched && !lookupLoading && results.length === 0 && !external && (
+        <div className="panel">
+          <div>😢 Không tìm thấy từ nào. Thử từ khác nhé!</div>
+          {q.trim() !== '' && <ExtLinks en={q.trim()} />}
+        </div>
+      )}
       {external && (
         <div className="word-card">
           <h3>
@@ -81,7 +87,7 @@ export default function Dictionary() {
             ) : (
               <button className="speak-btn" title="Nghe phát âm" onClick={() => speak(external.word)}>🔊</button>
             )}
-            <span className="badge">Nguồn mở rộng · Wiktionary</span>
+            <span className="badge">Nguồn mở rộng · {external.provider === 'oxford' ? 'Oxford' : 'Wiktionary'}</span>
           </h3>
           {external.phonetic && <div className="ipa">{external.phonetic} — nghĩa Anh (chưa có nghĩa Việt)</div>}
           {external.meanings.map((m, i) => (
@@ -92,7 +98,9 @@ export default function Dictionary() {
           ))}
           {external.sourceUrl && (
             <div style={{ marginTop: 8, fontSize: 13 }}>
-              <a href={external.sourceUrl} target="_blank" rel="noreferrer">Nguồn: Wiktionary</a>
+              <a href={external.sourceUrl} target="_blank" rel="noreferrer">
+                Nguồn: {external.provider === 'oxford' ? 'Oxford Learner’s' : 'Wiktionary'}
+              </a>
             </div>
           )}
         </div>

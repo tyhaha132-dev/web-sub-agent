@@ -37,6 +37,7 @@ interface Snap {
   level: number;
   lastSpawn: number;
   phase: Phase;
+  missed: { prompt: string; answer: string }[];
 }
 
 const SPEEDS = [
@@ -84,7 +85,7 @@ function spawnFloater(words: Word[], dir: Dir, diff: Diff, speedSetting: number,
     hint: makeHint(norm.length > 0 ? norm : answer, diff),
     x: 8 + Math.random() * 78,
     y: -10,
-    speed: (4.5 + speedSetting * 2) * (1 + 0.12 * (level - 1)),
+    speed: (3.2 + speedSetting * 1.4) * (1 + 0.1 * (level - 1)),
   };
 }
 
@@ -94,9 +95,9 @@ function stepGame(s: Snap, words: Word[], dir: Dir, diff: Diff, speedSetting: nu
   const level = 1 + Math.floor(s.blasted / 5);
   let { lives, score, blasted, spawned, lastSpawn } = s;
   let floaters = s.floaters.map((f) => ({ ...f, y: f.y + f.speed * dt }));
-  const interval = Math.max(600, 2400 - speedSetting * 350);
+  const interval = Math.max(1200, 3600 - speedSetting * 450);
 
-  if (spawned < WORDS_PER_GAME && floaters.length < 4 && now - lastSpawn >= interval && words.length > 0) {
+  if (spawned < WORDS_PER_GAME && floaters.length < 3 && now - lastSpawn >= interval && words.length > 0) {
     floaters = [...floaters, spawnFloater(words, dir, diff, speedSetting, level)];
     spawned += 1;
     lastSpawn = now;
@@ -104,7 +105,14 @@ function stepGame(s: Snap, words: Word[], dir: Dir, diff: Diff, speedSetting: nu
 
   const survived = floaters.filter((f) => f.y < GROUND_Y);
   const fallen = floaters.length - survived.length;
-  if (fallen > 0) lives -= fallen;
+  let missed = s.missed;
+  if (fallen > 0) {
+    lives -= fallen;
+    const newly = floaters
+      .filter((f) => f.y >= GROUND_Y)
+      .map((f) => ({ prompt: f.prompt, answer: f.answer }));
+    missed = [...missed, ...newly].slice(-WORDS_PER_GAME);
+  }
   floaters = survived;
 
   let phase: Phase = 'playing';
@@ -122,7 +130,7 @@ function stepGame(s: Snap, words: Word[], dir: Dir, diff: Diff, speedSetting: nu
     buffer = '';
   }
 
-  return { ...s, floaters, booms, buffer, targetId, lives, score, blasted, spawned, level, lastSpawn, phase };
+  return { ...s, floaters, booms, buffer, targetId, lives, score, blasted, spawned, level, lastSpawn, phase, missed };
 }
 
 function typeChar(s: Snap, ch: string, now: number): Snap {
@@ -173,9 +181,18 @@ const freshSnap = (now: number): Snap => ({
   level: 1,
   lastSpawn: now,
   phase: 'playing',
+  missed: [],
 });
 
-export default function BlastGame({ words }: { words: Word[] }) {
+export default function BlastGame({
+  words,
+  saveServer = true,
+  onDone,
+}: {
+  words: Word[];
+  saveServer?: boolean;
+  onDone?: (blasted: number, total: number) => void;
+}) {
   const [phase, setPhase] = useState<Phase>('setup');
   const [dir, setDir] = useState<Dir>('vi-en');
   const [diff, setDiff] = useState<Diff>('hard');
@@ -234,7 +251,11 @@ export default function BlastGame({ words }: { words: Word[] }) {
     if ((snap.phase === 'won' || snap.phase === 'lost') && !savedRef.current) {
       savedRef.current = true;
       setPhase(snap.phase);
-      saveProgress(snap.blasted, WORDS_PER_GAME).catch(() => {});
+      if (saveServer) {
+        saveProgress(snap.blasted, WORDS_PER_GAME).catch(() => {});
+      } else {
+        onDone?.(snap.blasted, WORDS_PER_GAME);
+      }
     }
   }, [snap.phase, snap.blasted]);
 
@@ -274,6 +295,13 @@ export default function BlastGame({ words }: { words: Word[] }) {
 
   function start() {
     if (words.length === 0) return;
+    restart();
+  }
+
+  function restart() {
+    savedRef.current = false;
+    setStreak(0);
+    prevRef.current = { blasted: 0, lives: MAX_LIVES };
     setCount(3);
     setPhase('ready');
   }
@@ -387,6 +415,13 @@ export default function BlastGame({ words }: { words: Word[] }) {
         ))}
         <div className="blast-ground">ĐÁY — đừng để lọt! 💥 {snap.blasted}/{WORDS_PER_GAME}</div>
       </div>
+      {snap.missed.length > 0 && (
+        <div className="blast-missed">
+          Vừa lọt: <b>{snap.missed[snap.missed.length - 1].prompt}</b>
+          {' = '}
+          {snap.missed[snap.missed.length - 1].answer}
+        </div>
+      )}
       <div className="blast-cannon">🌞</div>
       <div className="blast-inputbox">
         {snap.buffer || <span className="ph">Gõ đáp án…</span>}
@@ -394,7 +429,17 @@ export default function BlastGame({ words }: { words: Word[] }) {
       {(snap.phase === 'won' || snap.phase === 'lost') && (
         <div className="blast-end">
           <h2>{snap.phase === 'won' ? `🏆 Thắng! ${snap.score} điểm` : `💀 Thua rồi! ${snap.blasted}/${WORDS_PER_GAME} từ`}</h2>
-          <button className="blast-play" onClick={() => { savedRef.current = false; setStreak(0); prevRef.current = { blasted: 0, lives: MAX_LIVES }; setSnap(freshSnap(performance.now())); }}>🔁 Chơi lại</button>
+          {snap.missed.length > 0 && (
+            <div className="blast-missed-list">
+              <p>📝 Ôn lại các từ đã lọt:</p>
+              <ul>
+                {snap.missed.map((m, i) => (
+                  <li key={i}><b>{m.prompt}</b> = {m.answer}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <button className="blast-play" onClick={restart}>🔁 Chơi lại</button>
           <button className="btn btn-ghost" onClick={() => setPhase('setup')}>⚙️ Đổi chế độ</button>
         </div>
       )}

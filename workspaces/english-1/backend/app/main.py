@@ -2,6 +2,7 @@ import html
 import json
 import random
 import re
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -17,10 +18,14 @@ import os
 
 app = FastAPI(title="English Learning API")
 
-WORD_RE = re.compile(r"^[A-Za-z][A-Za-z\-']*$")
+WORD_RE = re.compile(r"^[A-Za-z][A-Za-z\s\-']*$")
 WIKI_BASE = "https://en.wiktionary.org/api/rest_v1"
 WIKI_DEF_TIMEOUT = 8
 WIKI_HTML_TIMEOUT = 12
+WIKI_MEDIA_TIMEOUT = 8
+OXFORD_BASE = "https://www.oxfordlearnersdictionaries.com/definition/english"
+OXFORD_TIMEOUT = 10
+OXFORD_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) EnglishFun/1.0"
 _H2_RE = re.compile(r"<h2[^>]*>.*?</h2>", re.DOTALL)
 _IPA_RE = re.compile(r'<span class="IPA[^"]*"[^>]*>(.*?)</span>', re.DOTALL)
 _TAG_RE = re.compile(r"<[^>]+>")
@@ -91,17 +96,19 @@ def search_words(q: str = "", topic: str = "") -> dict:
     return {"words": [dict(r) for r in rows], "query": q.strip()}
 
 
-def _http_get(url: str, timeout: int, label: str) -> bytes | None:
+def _http_get(url: str, timeout: int, label: str, ua: str = "EnglishFun/1.0") -> bytes | None:
     """GET with one retry on fast failures. 404/timeout return None immediately."""
     for attempt in (1, 2):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "EnglishFun/1.0"})
+            req = urllib.request.Request(url, headers={"User-Agent": ua})
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 return resp.read()
         except urllib.error.HTTPError as exc:
             print(f"[lookup] {label} HTTP {exc.code} (attempt {attempt})", flush=True)
             if exc.code == 404:
                 return None
+            if exc.code == 429 and attempt == 1:
+                time.sleep(2)  # nới nhịp khi bị giới hạn, rồi thử lại 1 lần
         except Exception as exc:  # noqa: BLE001 - external API must never break lookup
             if isinstance(exc, TimeoutError) or isinstance(getattr(exc, "reason", None), TimeoutError):
                 print(f"[lookup] {label} timeout (attempt {attempt})", flush=True)
@@ -127,6 +134,14 @@ def _english_section(page_html: str) -> str:
 
 
 def _fetch_external(word: str) -> dict | None:
+    """External lookup chain: Wiktionary first, Oxford Learner's as last resort."""
+    wiki = _fetch_wiktionary(word)
+    if wiki is not None and wiki.get("meanings"):
+        return wiki
+    return _fetch_oxford(word)
+
+
+def _fetch_wiktionary(word: str) -> dict | None:
     """Fetch English entry from Wiktionary, return normalized dict or None."""
     slug = urllib.parse.quote(word.lower())
     raw = _http_get(f"{WIKI_BASE}/page/definition/{slug}", WIKI_DEF_TIMEOUT, f"def:{word}")
@@ -182,11 +197,89 @@ def _fetch_external(word: str) -> dict | None:
     }
 
 
+def _fetch_oxford(word: str) -> dict | None:
+    """Last resort: first English definition from Oxford Learner's (no Vietnamese)."""
+    slug = "-".join(word.lower().split())
+    slug = re.sub(r"[^a-z0-9\-]", "", slug).strip("-")
+    if not slug:
+        return None
+    raw = _http_get(f"{OXFORD_BASE}/{slug}", OXFORD_TIMEOUT, f"oxford:{word}", ua=OXFORD_UA)
+    if raw is None:
+        return None
+    page = raw.decode("utf-8", errors="replace")
+    defs = [
+        _strip_html(m) for m in re.findall(r'<span class="def"[^>]*>(.*?)</span>', page, re.DOTALL)
+    ]
+    defs = [d for d in defs if d][:3]
+    if not defs:
+        return None
+    phon = re.search(r'<span class="phon"[^>]*>(.*?)</span>', page, re.DOTALL)
+    example = re.search(r'<span class="x"[^>]*>(.*?)</span>', page, re.DOTALL)
+    return {
+        "word": word,
+        "phonetic": _strip_html(phon.group(1)) if phon else "",
+        "audio": "",
+        "meanings": [
+            {
+                "pos": "",
+                "definition": d[:500],
+                "example": _strip_html(example.group(1))[:300] if example else "",
+            }
+            for d in defs
+        ],
+        "sourceUrl": f"{OXFORD_BASE}/{slug}",
+        "provider": "oxford",
+    }
+
+
+def _pick_english_audio(items: list) -> str:
+    """Pick an English pronunciation file, prefer En-*/en-* names."""
+    audios = [it for it in items if isinstance(it, dict) and it.get("type") == "audio"]
+    if not audios:
+        return ""
+    titles = [str(it.get("title") or "") for it in audios]
+
+    def score(t: str) -> int:
+        name = t.split(":", 1)[-1]
+        if re.match(r"(?i)^en[-_]", name):
+            return 0
+        if "eng" in name.lower():
+            return 1
+        return 2
+
+    titles.sort(key=score)
+    filename = titles[0].split(":", 1)[-1].strip().replace(" ", "_")
+    if not filename:
+        return ""
+    return "https://commons.wikimedia.org/wiki/Special:FilePath/" + urllib.parse.quote(filename)
+
+
+@app.get("/api/words/audio")
+def word_audio(en: str = "") -> dict:
+    word = " ".join(en.strip().split())
+    if not word or len(word) > 60 or not WORD_RE.match(word):
+        return {"audio": None, "query": en.strip()[:60]}
+    raw = _http_get(
+        f"{WIKI_BASE}/page/media-list/{urllib.parse.quote(word.lower())}",
+        WIKI_MEDIA_TIMEOUT,
+        f"media:{word}",
+    )
+    if raw is None:
+        return {"audio": None, "query": word}
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except ValueError:
+        return {"audio": None, "query": word}
+    items = payload.get("items") if isinstance(payload, dict) else None
+    audio = _pick_english_audio(items or [])
+    return {"audio": audio or None, "query": word}
+
+
 @app.get("/api/words/lookup")
 def lookup_word(en: str = "") -> dict:
-    word = en.strip()
-    if not word:
-        return {"source": "none", "words": [], "external": None, "query": ""}
+    word = " ".join(en.strip().split())
+    if not word or len(word) > 60:
+        return {"source": "none", "words": [], "external": None, "query": en.strip()[:60]}
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
