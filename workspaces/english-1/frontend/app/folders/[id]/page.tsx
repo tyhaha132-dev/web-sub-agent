@@ -12,8 +12,12 @@ import {
 } from '../../../lib/folders';
 import type { QuizQuestion } from '../../../lib/api';
 import { FlipMode } from '../../flashcards/flip-mode';
+import { WriteMode } from '../../flashcards/write-mode';
+import { ListenMode } from '../../flashcards/listen-mode';
+import { MatchMode } from '../../flashcards/match-mode';
+import BlastGame from '../../flashcards/blast-game';
 
-type Tab = 'words' | 'flip' | 'quiz';
+type Tab = 'words' | 'flip' | 'write' | 'listen' | 'match' | 'blast' | 'quiz';
 
 export default function FolderDetail({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -67,6 +71,17 @@ export default function FolderDetail({ params }: { params: { id: string } }) {
     persist({ ...folder, words: folder.words.filter((w) => w.id !== wordId) });
   }
 
+  function recordBlast(blasted: number, total: number) {
+    if (!folder) return;
+    persist({
+      ...folder,
+      stats: {
+        attempts: folder.stats.attempts + 1,
+        correct: folder.stats.correct + blasted,
+        total: folder.stats.total + total,
+      },
+    });
+  }
   function markKnown(en: string) {
     if (!folder) return;
     const key = en.toLowerCase();
@@ -112,6 +127,7 @@ export default function FolderDetail({ params }: { params: { id: string } }) {
 
   const known = knownCount(folder);
   const pending = folder.words.filter((w) => w.source === 'pending').length;
+  const folderWords = folder.words.map((w) => ({ ...toWord(w), topic: folder.name }));
 
   return (
     <main>
@@ -123,6 +139,10 @@ export default function FolderDetail({ params }: { params: { id: string } }) {
         <div className="topic-row">
           <button className={`topic-chip ${tab === 'words' ? 'active' : ''}`} onClick={() => setTab('words')}>📝 Từ vựng</button>
           <button className={`topic-chip ${tab === 'flip' ? 'active' : ''}`} onClick={() => setTab('flip')}>🃏 Lật thẻ</button>
+          <button className={`topic-chip ${tab === 'write' ? 'active' : ''}`} onClick={() => setTab('write')}>✍️ Điền từ</button>
+          <button className={`topic-chip ${tab === 'listen' ? 'active' : ''}`} onClick={() => setTab('listen')}>🔊 Nghe–chép</button>
+          <button className={`topic-chip ${tab === 'match' ? 'active' : ''}`} onClick={() => setTab('match')}>⚡ Ghép cặp</button>
+          <button className={`topic-chip ${tab === 'blast' ? 'active' : ''}`} onClick={() => setTab('blast')}>💥 Card Blast</button>
           <button className={`topic-chip ${tab === 'quiz' ? 'active' : ''}`} onClick={() => setTab('quiz')}>🏆 Quiz</button>
         </div>
       </div>
@@ -153,7 +173,27 @@ export default function FolderDetail({ params }: { params: { id: string } }) {
       {tab === 'flip' && (
         folder.words.length === 0
           ? <div className="panel">Thư mục trống, chưa luyện được.</div>
-          : <FlipMode key={folder.words.length} words={folder.words.map(toWord)} onKnown={markKnown} />
+          : <FlipMode key={`flip-${folder.words.length}`} words={folderWords} onKnown={markKnown} />
+      )}
+      {tab === 'write' && (
+        folder.words.length === 0
+          ? <div className="panel">Thư mục trống, chưa luyện được.</div>
+          : <WriteMode key={`write-${folder.words.length}`} words={folderWords} />
+      )}
+      {tab === 'listen' && (
+        folder.words.length === 0
+          ? <div className="panel">Thư mục trống, chưa luyện được.</div>
+          : <ListenMode key={`listen-${folder.words.length}`} words={folderWords} />
+      )}
+      {tab === 'match' && (
+        folder.words.length === 0
+          ? <div className="panel">Thư mục trống, chưa luyện được.</div>
+          : <MatchMode key={`match-${folder.words.length}`} words={folderWords} />
+      )}
+      {tab === 'blast' && (
+        folder.words.length === 0
+          ? <div className="panel">Thư mục trống, chưa luyện được.</div>
+          : <BlastGame key={`blast-${folder.words.length}`} words={folderWords} saveServer={false} onDone={recordBlast} />
       )}
       {tab === 'quiz' && (
         <FolderQuiz key={`${folder.id}-${folder.words.length}`} folder={folder} onDone={recordQuiz} />

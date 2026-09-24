@@ -184,7 +184,15 @@ const freshSnap = (now: number): Snap => ({
   missed: [],
 });
 
-export default function BlastGame({ words }: { words: Word[] }) {
+export default function BlastGame({
+  words,
+  saveServer = true,
+  onDone,
+}: {
+  words: Word[];
+  saveServer?: boolean;
+  onDone?: (blasted: number, total: number) => void;
+}) {
   const [phase, setPhase] = useState<Phase>('setup');
   const [dir, setDir] = useState<Dir>('vi-en');
   const [diff, setDiff] = useState<Diff>('hard');
@@ -243,7 +251,11 @@ export default function BlastGame({ words }: { words: Word[] }) {
     if ((snap.phase === 'won' || snap.phase === 'lost') && !savedRef.current) {
       savedRef.current = true;
       setPhase(snap.phase);
-      saveProgress(snap.blasted, WORDS_PER_GAME).catch(() => {});
+      if (saveServer) {
+        saveProgress(snap.blasted, WORDS_PER_GAME).catch(() => {});
+      } else {
+        onDone?.(snap.blasted, WORDS_PER_GAME);
+      }
     }
   }, [snap.phase, snap.blasted]);
 
