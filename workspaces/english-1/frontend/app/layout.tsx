@@ -15,6 +15,7 @@ const links = [
   ['Luyện tập', '/flashcards'],
   ['Quiz', '/quiz'],
   ['Tiến độ', '/progress'],
+  ['Thư mục', '/folders'],
 ] as const;
 
 const THEME_INIT = `(function(){try{var t=localStorage.getItem('${THEME_KEY}');if(t==='dark'){document.documentElement.dataset.theme='dark';}}catch(e){}})();`;
