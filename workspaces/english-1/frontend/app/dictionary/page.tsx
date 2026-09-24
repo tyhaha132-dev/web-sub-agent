@@ -81,7 +81,7 @@ export default function Dictionary() {
             ) : (
               <button className="speak-btn" title="Nghe phát âm" onClick={() => speak(external.word)}>🔊</button>
             )}
-            <span className="badge">Nguồn mở rộng</span>
+            <span className="badge">Nguồn mở rộng · Wiktionary</span>
           </h3>
           {external.phonetic && <div className="ipa">{external.phonetic} — nghĩa Anh (chưa có nghĩa Việt)</div>}
           {external.meanings.map((m, i) => (

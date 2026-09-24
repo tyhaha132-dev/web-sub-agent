@@ -1,3 +1,4 @@
+import html
 import json
 import random
 import re
@@ -17,8 +18,12 @@ import os
 app = FastAPI(title="English Learning API")
 
 WORD_RE = re.compile(r"^[A-Za-z][A-Za-z\-']*$")
-DICT_API_BASE = "https://api.dictionaryapi.dev/api/v2/entries/en"
-DICT_TIMEOUT = 8
+WIKI_BASE = "https://en.wiktionary.org/api/rest_v1"
+WIKI_DEF_TIMEOUT = 8
+WIKI_HTML_TIMEOUT = 12
+_H2_RE = re.compile(r"<h2[^>]*>.*?</h2>", re.DOTALL)
+_IPA_RE = re.compile(r'<span class="IPA[^"]*"[^>]*>(.*?)</span>', re.DOTALL)
+_TAG_RE = re.compile(r"<[^>]+>")
 
 app.add_middleware(
     CORSMiddleware,
@@ -86,52 +91,84 @@ def search_words(q: str = "", topic: str = "") -> dict:
     return {"words": [dict(r) for r in rows], "query": q.strip()}
 
 
-def _fetch_external(word: str) -> dict | None:
-    """Fetch first entry from Free Dictionary API, return normalized dict or None."""
-    url = f"{DICT_API_BASE}/{urllib.parse.quote(word.lower())}"
+def _http_get(url: str, timeout: int) -> bytes | None:
     req = urllib.request.Request(url, headers={"User-Agent": "EnglishFun/1.0"})
     try:
-        with urllib.request.urlopen(req, timeout=DICT_TIMEOUT) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, ValueError):
-        return None
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.read()
     except Exception:  # noqa: BLE001 - external API must never break lookup
         return None
-    if not isinstance(payload, list) or not payload:
+
+
+def _strip_html(s: str) -> str:
+    text = _TAG_RE.sub("", s or "")
+    text = html.unescape(text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _english_section(page_html: str) -> str:
+    heads = list(_H2_RE.finditer(page_html))
+    for i, h in enumerate(heads):
+        name = _strip_html(h.group(0))
+        if name == "English":
+            end = heads[i + 1].start() if i + 1 < len(heads) else len(page_html)
+            return page_html[h.start():end]
+    return ""
+
+
+def _fetch_external(word: str) -> dict | None:
+    """Fetch English entry from Wiktionary, return normalized dict or None."""
+    slug = urllib.parse.quote(word.lower())
+    raw = _http_get(f"{WIKI_BASE}/page/definition/{slug}", WIKI_DEF_TIMEOUT)
+    if raw is None:
         return None
-    entry = payload[0]
-    if not isinstance(entry, dict):
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except ValueError:
         return None
-    phonetic = str(entry.get("phonetic") or "")
-    audio = ""
-    for ph in entry.get("phonetics") or []:
-        if not isinstance(ph, dict):
-            continue
-        if not phonetic and ph.get("text"):
-            phonetic = str(ph["text"])
-        if not audio and ph.get("audio"):
-            audio = str(ph["audio"])
+    entries = payload.get("en") if isinstance(payload, dict) else None
+    if not entries:
+        return None
     meanings: list[dict] = []
-    for m in entry.get("meanings") or []:
+    for m in entries:
         if not isinstance(m, dict) or len(meanings) >= 3:
             break
         pos = str(m.get("partOfSpeech") or "")
         for d in m.get("definitions") or []:
             if not isinstance(d, dict) or len(meanings) >= 3:
                 break
-            definition = str(d.get("definition") or "").strip()
+            definition = _strip_html(str(d.get("definition") or ""))
             if not definition:
                 continue
-            example = str(d.get("example") or "")
+            examples = d.get("examples") or []
+            example = _strip_html(str(examples[0])) if examples else ""
             meanings.append({"pos": pos, "definition": definition, "example": example})
-    source_urls = entry.get("sourceUrls") or []
-    source_url = str(source_urls[0]) if source_urls else ""
+    if not meanings:
+        return None
+    phonetic = ""
+    audio = ""
+    raw_html = _http_get(f"{WIKI_BASE}/page/html/{slug}", WIKI_HTML_TIMEOUT)
+    if raw_html is not None:
+        try:
+            section = _english_section(raw_html.decode("utf-8", errors="replace"))
+        except Exception:  # noqa: BLE001 - malformed HTML must not break lookup
+            section = ""
+        if section:
+            ipa = _IPA_RE.search(section)
+            if ipa:
+                phonetic = _strip_html(ipa.group(1))
+            mp3 = re.findall(r"//upload\.wikimedia\.org/[^\"' <>]+?\.mp3", section)
+            ogg = re.findall(r"//upload\.wikimedia\.org/[^\"' <>]+?\.ogg", section)
+            pick = (mp3 + ogg)[:1]
+            if pick:
+                audio = "https:" + html.unescape(pick[0])
     return {
-        "word": str(entry.get("word") or word),
+        "word": word,
         "phonetic": phonetic,
         "audio": audio,
         "meanings": meanings,
-        "sourceUrl": source_url,
+        "sourceUrl": f"https://en.wiktionary.org/wiki/{slug}",
+        "provider": "wiktionary",
     }
 
 

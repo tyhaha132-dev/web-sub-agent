@@ -30,6 +30,7 @@ export interface ExternalEntry {
   audio: string;
   meanings: ExternalMeaning[];
   sourceUrl: string;
+  provider: string;
 }
 
 export interface LookupResult {
