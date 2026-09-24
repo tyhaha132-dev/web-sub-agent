@@ -1,4 +1,9 @@
+import json
 import random
+import re
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +15,10 @@ from app.db import get_engine
 import os
 
 app = FastAPI(title="English Learning API")
+
+WORD_RE = re.compile(r"^[A-Za-z][A-Za-z\-']*$")
+DICT_API_BASE = "https://api.dictionaryapi.dev/api/v2/entries/en"
+DICT_TIMEOUT = 8
 
 app.add_middleware(
     CORSMiddleware,
@@ -75,6 +84,76 @@ def search_words(q: str = "", topic: str = "") -> dict:
                 {"k": keyword},
             ).mappings().all()
     return {"words": [dict(r) for r in rows], "query": q.strip()}
+
+
+def _fetch_external(word: str) -> dict | None:
+    """Fetch first entry from Free Dictionary API, return normalized dict or None."""
+    url = f"{DICT_API_BASE}/{urllib.parse.quote(word.lower())}"
+    req = urllib.request.Request(url, headers={"User-Agent": "EnglishFun/1.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=DICT_TIMEOUT) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, ValueError):
+        return None
+    except Exception:  # noqa: BLE001 - external API must never break lookup
+        return None
+    if not isinstance(payload, list) or not payload:
+        return None
+    entry = payload[0]
+    if not isinstance(entry, dict):
+        return None
+    phonetic = str(entry.get("phonetic") or "")
+    audio = ""
+    for ph in entry.get("phonetics") or []:
+        if not isinstance(ph, dict):
+            continue
+        if not phonetic and ph.get("text"):
+            phonetic = str(ph["text"])
+        if not audio and ph.get("audio"):
+            audio = str(ph["audio"])
+    meanings: list[dict] = []
+    for m in entry.get("meanings") or []:
+        if not isinstance(m, dict) or len(meanings) >= 3:
+            break
+        pos = str(m.get("partOfSpeech") or "")
+        for d in m.get("definitions") or []:
+            if not isinstance(d, dict) or len(meanings) >= 3:
+                break
+            definition = str(d.get("definition") or "").strip()
+            if not definition:
+                continue
+            example = str(d.get("example") or "")
+            meanings.append({"pos": pos, "definition": definition, "example": example})
+    source_urls = entry.get("sourceUrls") or []
+    source_url = str(source_urls[0]) if source_urls else ""
+    return {
+        "word": str(entry.get("word") or word),
+        "phonetic": phonetic,
+        "audio": audio,
+        "meanings": meanings,
+        "sourceUrl": source_url,
+    }
+
+
+@app.get("/api/words/lookup")
+def lookup_word(en: str = "") -> dict:
+    word = en.strip()
+    if not word:
+        return {"source": "none", "words": [], "external": None, "query": ""}
+    engine = get_engine()
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text("SELECT id, en, vi, ipa, example, topic FROM words WHERE en ILIKE :e ORDER BY id LIMIT 5"),
+            {"e": word},
+        ).mappings().all()
+    if rows:
+        return {"source": "db", "words": [dict(r) for r in rows], "external": None, "query": word}
+    if not WORD_RE.match(word):
+        return {"source": "none", "words": [], "external": None, "query": word}
+    external = _fetch_external(word)
+    if external is None:
+        return {"source": "none", "words": [], "external": None, "query": word}
+    return {"source": "external", "words": [], "external": external, "query": word}
 
 
 @app.get("/api/topics")

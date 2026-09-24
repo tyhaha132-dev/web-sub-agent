@@ -18,6 +18,27 @@ export interface QuizQuestion {
   answer: string;
 }
 
+export interface ExternalMeaning {
+  pos: string;
+  definition: string;
+  example: string;
+}
+
+export interface ExternalEntry {
+  word: string;
+  phonetic: string;
+  audio: string;
+  meanings: ExternalMeaning[];
+  sourceUrl: string;
+}
+
+export interface LookupResult {
+  source: 'db' | 'external' | 'none';
+  words: Word[];
+  external: ExternalEntry | null;
+  query: string;
+}
+
 export const API_BASE =
   (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000').replace(/\/+$/, '');
 
@@ -52,6 +73,22 @@ export async function searchWords(q: string, topic = ''): Promise<Word[]> {
     return data.words ?? [];
   } catch {
     return [];
+  }
+}
+
+export const SINGLE_WORD_RE = /^[A-Za-z][A-Za-z\-']*$/;
+
+export async function lookupWord(en: string): Promise<LookupResult | null> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/words/lookup?en=${encodeURIComponent(en)}`,
+      { cache: 'no-store' },
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as LookupResult;
+    return data;
+  } catch {
+    return null;
   }
 }
 

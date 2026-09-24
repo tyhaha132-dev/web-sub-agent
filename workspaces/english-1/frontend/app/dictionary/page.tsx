@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { fetchTopics, searchWords, speak, type Topic, type Word } from '../../lib/api';
+import { fetchTopics, lookupWord, searchWords, speak, SINGLE_WORD_RE, type ExternalEntry, type Topic, type Word } from '../../lib/api';
 
 export default function Dictionary() {
   const [q, setQ] = useState('');
@@ -9,6 +9,8 @@ export default function Dictionary() {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [results, setResults] = useState<Word[]>([]);
   const [searched, setSearched] = useState(false);
+  const [external, setExternal] = useState<ExternalEntry | null>(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
 
   useEffect(() => {
     fetchTopics().then(setTopics).catch(() => {});
@@ -22,9 +24,25 @@ export default function Dictionary() {
 
   async function run(e?: { preventDefault: () => void }) {
     e?.preventDefault();
+    const keyword = q.trim();
+    setExternal(null);
     const w = await searchWords(q, topic);
     setResults(w);
     setSearched(true);
+    if (w.length === 0 && SINGLE_WORD_RE.test(keyword)) {
+      setLookupLoading(true);
+      try {
+        const found = await lookupWord(keyword);
+        if (found?.source === 'db' && found.words.length > 0) {
+          setResults(found.words);
+          setExternal(null);
+        } else if (found?.source === 'external' && found.external) {
+          setExternal(found.external);
+        }
+      } finally {
+        setLookupLoading(false);
+      }
+    }
   }
 
   return (
@@ -52,7 +70,33 @@ export default function Dictionary() {
           ))}
         </div>
       </div>
-      {searched && results.length === 0 && <div className="panel">😢 Không tìm thấy từ nào. Thử từ khác nhé!</div>}
+      {lookupLoading && <div className="panel">🌐 Đang tra nguồn mở rộng…</div>}
+      {searched && !lookupLoading && results.length === 0 && !external && <div className="panel">😢 Không tìm thấy từ nào. Thử từ khác nhé!</div>}
+      {external && (
+        <div className="word-card">
+          <h3>
+            {external.word}
+            {external.audio ? (
+              <audio controls src={external.audio} style={{ verticalAlign: 'middle', marginLeft: 8, maxHeight: 32 }} />
+            ) : (
+              <button className="speak-btn" title="Nghe phát âm" onClick={() => speak(external.word)}>🔊</button>
+            )}
+            <span className="badge">Nguồn mở rộng</span>
+          </h3>
+          {external.phonetic && <div className="ipa">{external.phonetic} — nghĩa Anh (chưa có nghĩa Việt)</div>}
+          {external.meanings.map((m, i) => (
+            <div key={i} className="ex" style={{ marginTop: 8 }}>
+              <b>{m.pos}</b>: {m.definition}
+              {m.example && <div>“{m.example}”</div>}
+            </div>
+          ))}
+          {external.sourceUrl && (
+            <div style={{ marginTop: 8, fontSize: 13 }}>
+              <a href={external.sourceUrl} target="_blank" rel="noreferrer">Nguồn: Wiktionary</a>
+            </div>
+          )}
+        </div>
+      )}
       {results.map((w) => (
         <div key={w.id} className="word-card">
           <h3>
