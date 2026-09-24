@@ -2,6 +2,7 @@ import html
 import json
 import random
 import re
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -21,6 +22,7 @@ WORD_RE = re.compile(r"^[A-Za-z][A-Za-z\s\-']*$")
 WIKI_BASE = "https://en.wiktionary.org/api/rest_v1"
 WIKI_DEF_TIMEOUT = 8
 WIKI_HTML_TIMEOUT = 12
+WIKI_MEDIA_TIMEOUT = 8
 OXFORD_BASE = "https://www.oxfordlearnersdictionaries.com/definition/english"
 OXFORD_TIMEOUT = 10
 OXFORD_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) EnglishFun/1.0"
@@ -105,6 +107,8 @@ def _http_get(url: str, timeout: int, label: str, ua: str = "EnglishFun/1.0") ->
             print(f"[lookup] {label} HTTP {exc.code} (attempt {attempt})", flush=True)
             if exc.code == 404:
                 return None
+            if exc.code == 429 and attempt == 1:
+                time.sleep(2)  # nới nhịp khi bị giới hạn, rồi thử lại 1 lần
         except Exception as exc:  # noqa: BLE001 - external API must never break lookup
             if isinstance(exc, TimeoutError) or isinstance(getattr(exc, "reason", None), TimeoutError):
                 print(f"[lookup] {label} timeout (attempt {attempt})", flush=True)
@@ -226,6 +230,49 @@ def _fetch_oxford(word: str) -> dict | None:
         "sourceUrl": f"{OXFORD_BASE}/{slug}",
         "provider": "oxford",
     }
+
+
+def _pick_english_audio(items: list) -> str:
+    """Pick an English pronunciation file, prefer En-*/en-* names."""
+    audios = [it for it in items if isinstance(it, dict) and it.get("type") == "audio"]
+    if not audios:
+        return ""
+    titles = [str(it.get("title") or "") for it in audios]
+
+    def score(t: str) -> int:
+        name = t.split(":", 1)[-1]
+        if re.match(r"(?i)^en[-_]", name):
+            return 0
+        if "eng" in name.lower():
+            return 1
+        return 2
+
+    titles.sort(key=score)
+    filename = titles[0].split(":", 1)[-1].strip().replace(" ", "_")
+    if not filename:
+        return ""
+    return "https://commons.wikimedia.org/wiki/Special:FilePath/" + urllib.parse.quote(filename)
+
+
+@app.get("/api/words/audio")
+def word_audio(en: str = "") -> dict:
+    word = " ".join(en.strip().split())
+    if not word or len(word) > 60 or not WORD_RE.match(word):
+        return {"audio": None, "query": en.strip()[:60]}
+    raw = _http_get(
+        f"{WIKI_BASE}/page/media-list/{urllib.parse.quote(word.lower())}",
+        WIKI_MEDIA_TIMEOUT,
+        f"media:{word}",
+    )
+    if raw is None:
+        return {"audio": None, "query": word}
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except ValueError:
+        return {"audio": None, "query": word}
+    items = payload.get("items") if isinstance(payload, dict) else None
+    audio = _pick_english_audio(items or [])
+    return {"audio": audio or None, "query": word}
 
 
 @app.get("/api/words/lookup")

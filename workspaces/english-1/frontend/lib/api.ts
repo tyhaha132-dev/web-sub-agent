@@ -103,6 +103,34 @@ export async function lookupWord(en: string): Promise<LookupResult | null> {
   }
 }
 
+export async function fetchAudio(en: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/words/audio?en=${encodeURIComponent(en)}`,
+      { cache: 'no-store' },
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as { audio?: string | null };
+    return data.audio ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function playAudio(url: string | null, fallbackText: string): void {
+  if (!url) {
+    speak(fallbackText);
+    return;
+  }
+  try {
+    const el = new Audio(url);
+    el.addEventListener('error', () => speak(fallbackText));
+    void el.play().catch(() => speak(fallbackText));
+  } catch {
+    speak(fallbackText);
+  }
+}
+
 export async function fetchTopics(): Promise<Topic[]> {
   try {
     const res = await fetch(`${API_BASE}/api/topics`, { cache: 'no-store' });

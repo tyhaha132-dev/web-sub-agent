@@ -3,16 +3,16 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   buildFolderQuiz,
-  enrichPending,
+  enrichMissing,
   knownCount,
   loadFolders,
   saveFolders,
   toWord,
   type Folder,
 } from '../../../lib/folders';
+import { fetchAudio, playAudio } from '../../../lib/api';
 import type { QuizQuestion } from '../../../lib/api';
 import { FlipMode } from '../../flashcards/flip-mode';
-import ExtLinks from '../../ext-links';
 import { WriteMode } from '../../flashcards/write-mode';
 import { ListenMode } from '../../flashcards/listen-mode';
 import { MatchMode } from '../../flashcards/match-mode';
@@ -25,7 +25,6 @@ export default function FolderDetail({ params }: { params: { id: string } }) {
   const [folder, setFolder] = useState<Folder | null>(null);
   const [missing, setMissing] = useState(false);
   const [tab, setTab] = useState<Tab>('words');
-  const [enriching, setEnriching] = useState(false);
 
   useEffect(() => {
     const f = loadFolders().find((x) => x.id === id) ?? null;
@@ -39,13 +38,12 @@ export default function FolderDetail({ params }: { params: { id: string } }) {
     saveFolders(all);
   }
 
-  // làm giàu lười: tra các từ pending khi mở thư mục
+  // làm giàu lặng lẽ: điền nghĩa/audio còn thiếu khi mở thư mục
   useEffect(() => {
-    if (!folder || folder.words.every((w) => w.source !== 'pending')) return;
+    if (!folder || folder.words.every((w) => w.vi && w.audio)) return;
     const signal = { cancelled: false };
-    setEnriching(true);
     let current: Folder = folder;
-    enrichPending(
+    enrichMissing(
       folder.words,
       (en, patch) => {
         if (signal.cancelled) return;
@@ -58,15 +56,31 @@ export default function FolderDetail({ params }: { params: { id: string } }) {
         saveFolders(loadFolders().map((x) => (x.id === current.id ? current : x)));
       },
       signal,
-    ).finally(() => {
-      if (!signal.cancelled) setEnriching(false);
-    });
+    );
     return () => {
       signal.cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [folder?.id]);
 
+  // bấm loa: có audio thì phát ngay, chưa có thì lấy 1 lần rồi lưu lại
+  async function speakWord(w: { en: string; audio: string }) {
+    if (w.audio) {
+      playAudio(w.audio, w.en);
+      return;
+    }
+    const a = await fetchAudio(w.en);
+    if (a) {
+      const key = w.en.toLowerCase();
+      const next = folder
+        ? { ...folder, words: folder.words.map((x) => (x.en.toLowerCase() === key ? { ...x, audio: a } : x)) }
+        : null;
+      if (next) persist(next);
+      playAudio(a, w.en);
+    } else {
+      playAudio(null, w.en);
+    }
+  }
   function removeWord(wordId: number) {
     if (!folder) return;
     persist({ ...folder, words: folder.words.filter((w) => w.id !== wordId) });
@@ -127,7 +141,6 @@ export default function FolderDetail({ params }: { params: { id: string } }) {
   }
 
   const known = knownCount(folder);
-  const pending = folder.words.filter((w) => w.source === 'pending').length;
   const folderWords = folder.words.map((w) => ({ ...toWord(w), topic: folder.name }));
 
   return (
@@ -136,7 +149,6 @@ export default function FolderDetail({ params }: { params: { id: string } }) {
       <h1>📁 {folder.name}</h1>
       <div className="panel">
         <div>{folder.words.length} từ · Đã nhớ {known} · {folder.stats.attempts} lượt quiz</div>
-        {enriching && pending > 0 && <div>🔍 Đang tra nghĩa {pending} từ còn lại...</div>}
         <div className="topic-row">
           <button className={`topic-chip ${tab === 'words' ? 'active' : ''}`} onClick={() => setTab('words')}>📝 Từ vựng</button>
           <button className={`topic-chip ${tab === 'flip' ? 'active' : ''}`} onClick={() => setTab('flip')}>🃏 Lật thẻ</button>
@@ -156,14 +168,12 @@ export default function FolderDetail({ params }: { params: { id: string } }) {
               <div key={w.id} className="word-card">
                 <h3>
                   {w.en}
+                  <button className="speak-btn" title="Nghe phát âm" onClick={() => void speakWord(w)}>🔊</button>
                   {st === 'known' && <span className="badge">Đã nhớ</span>}
                   {st === 'learning' && <span className="badge">Đang học</span>}
-                  {w.source === 'pending' && <span className="badge">Đang tra...</span>}
-                  {w.source === 'unknown' && <span className="badge">Không rõ</span>}
                 </h3>
                 <div className="ipa">{w.ipa ? `${w.ipa} — ` : ''}{w.vi || '(chưa có nghĩa Việt)'}</div>
                 {w.example && <div className="ex">“{w.example}”</div>}
-                {w.source === 'unknown' && <ExtLinks en={w.en} />}
                 <div style={{ marginTop: 8 }}>
                   <button className="btn btn-ghost" onClick={() => removeWord(w.id)}>🗑️ Xóa từ</button>
                 </div>

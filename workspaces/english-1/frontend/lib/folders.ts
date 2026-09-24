@@ -1,6 +1,5 @@
 import { lookupWord, type QuizQuestion, type Word } from './api';
 
-export type FolderWordSource = 'pending' | 'db' | 'external' | 'unknown';
 export type WordStatus = 'new' | 'learning' | 'known';
 
 export interface FolderWord {
@@ -9,7 +8,7 @@ export interface FolderWord {
   vi: string;
   ipa: string;
   example: string;
-  source: FolderWordSource;
+  audio: string;
 }
 
 export interface FolderStats {
@@ -151,20 +150,21 @@ export function makeFolder(name: string, entries: ImportEntry[]): Folder {
       vi: e.vi,
       ipa: e.ipa,
       example: e.example,
-      source: 'pending' as FolderWordSource,
+      audio: '',
     })),
     status: {},
     stats: { attempts: 0, correct: 0, total: 0 },
   };
 }
 
-/** Làm giàu các từ pending qua /lookup có sẵn (DB trước, Wiktionary sau). */
-export async function enrichPending(
+/** Làm giàu từ còn thiếu nghĩa qua /lookup có sẵn. Lặng lẽ, không cờ.
+ *  Audio KHÔNG tra bulk (Wikimedia giới hạn gọi dồn) — lấy theo nhu cầu khi bấm loa. */
+export async function enrichMissing(
   words: FolderWord[],
   onUpdate: (en: string, patch: Partial<FolderWord>) => void,
   signal: { cancelled: boolean },
 ): Promise<void> {
-  const queue = words.filter((w) => w.source === 'pending');
+  const queue = words.filter((w) => !w.vi);
   const workers = Array.from({ length: 3 }, async () => {
     while (queue.length > 0) {
       if (signal.cancelled) return;
@@ -180,7 +180,7 @@ export async function enrichPending(
             vi: w.vi || d.vi,
             ipa: w.ipa || d.ipa,
             example: w.example || d.example,
-            source: 'db',
+            audio: w.audio || r.external?.audio || '',
           });
         } else if (r.source === 'external' && r.external) {
           const e = r.external;
@@ -190,13 +190,11 @@ export async function enrichPending(
             example: w.example || (first
               ? `${first.pos ? `${first.pos}: ` : ''}${first.definition}${first.example ? ` — “${first.example}”` : ''}`
               : ''),
-            source: 'external',
+            audio: w.audio || e.audio,
           });
-        } else {
-          onUpdate(w.en, { source: 'unknown' });
         }
       } catch {
-        if (!signal.cancelled) onUpdate(w.en, { source: 'unknown' });
+        /* bỏ qua: từ giữ nguyên những gì đã có */
       }
     }
   });
