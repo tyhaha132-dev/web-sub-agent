@@ -8,7 +8,7 @@ import {
   knownCount,
   loadFolders,
   makeFolder,
-  parseManual,
+  parseManualPair,
   rowsToEntries,
   saveFolders,
   type Folder,
@@ -115,7 +115,8 @@ export default function Folders() {
 
 function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: (f: Folder) => void }) {
   const [tab, setTab] = useState<'manual' | 'excel'>('manual');
-  const [text, setText] = useState('');
+  const [enText, setEnText] = useState('');
+  const [viText, setViText] = useState('');
   const [entries, setEntries] = useState<ImportEntry[]>([]);
   const [checked, setChecked] = useState(false);
   const [skipped, setSkipped] = useState(0);
@@ -124,10 +125,9 @@ function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: (f: F
   const [folderName, setFolderName] = useState('');
 
   function checkManual() {
-    const parts = text.split(/[\n,;]+/).filter((p) => p.trim() !== '');
-    const list = parseManual(text);
-    setEntries(list.map((en) => ({ en, vi: '', ipa: '', example: '' })));
-    setSkipped(parts.length - list.length);
+    const { entries: list, skipped } = parseManualPair(enText, viText);
+    setEntries(list);
+    setSkipped(skipped);
     setChecked(true);
     setError('');
   }
@@ -183,14 +183,30 @@ function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: (f: F
         </div>
         {tab === 'manual' ? (
           <>
-            <p>Nhập các từ tiếng Anh bạn muốn lưu. Tối đa {MAX_IMPORT_WORDS} từ.</p>
-            <textarea
-              value={text}
-              onChange={(e) => { setText(e.target.value); setChecked(false); }}
-              placeholder="Nhập từ tiếng Anh, mỗi từ một dòng hoặc cách nhau bởi dấu phẩy..."
-              rows={6}
-              style={{ width: '100%', borderRadius: 12, padding: 12, fontSize: 15, background: 'var(--input-bg)', color: 'var(--ink)', border: '2px solid var(--border-soft)' }}
-            />
+            <p>Nhập từ tiếng Anh bên trái, nghĩa Việt bên phải (từng dòng tương ứng).
+              Ô Anh cũng chấp nhận kiểu “hello : xin chào”. Tối đa {MAX_IMPORT_WORDS} từ.</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div>
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>Tiếng Anh</div>
+                <textarea
+                  value={enText}
+                  onChange={(e) => { setEnText(e.target.value); setChecked(false); }}
+                  placeholder={'hello\napple\nwell-known'}
+                  rows={6}
+                  style={{ width: '100%', borderRadius: 12, padding: 12, fontSize: 15, background: 'var(--input-bg)', color: 'var(--ink)', border: '2px solid var(--border-soft)' }}
+                />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>Nghĩa Việt</div>
+                <textarea
+                  value={viText}
+                  onChange={(e) => { setViText(e.target.value); setChecked(false); }}
+                  placeholder={'xin chào\nquả táo'}
+                  rows={6}
+                  style={{ width: '100%', borderRadius: 12, padding: 12, fontSize: 15, background: 'var(--input-bg)', color: 'var(--ink)', border: '2px solid var(--border-soft)' }}
+                />
+              </div>
+            </div>
             <div style={{ marginTop: 12 }}>
               <button className="btn btn-primary" onClick={checkManual}>🔍 Kiểm tra danh sách</button>
             </div>
@@ -219,7 +235,7 @@ function ImportModal({ onClose, onSaved }: { onClose: () => void; onSaved: (f: F
         {checked && (
           <div className="word-card">
             <div><b>{entries.length}</b> từ hợp lệ{skipped > 0 && <span> · bỏ qua {skipped} dòng rác/trùng</span>}</div>
-            <div className="ipa">{entries.slice(0, 10).map((e) => e.en).join(', ')}{entries.length > 10 ? '…' : ''}</div>
+            <div className="ipa">{entries.slice(0, 10).map((e) => (e.vi ? `${e.en} — ${e.vi}` : e.en)).join(' · ')}{entries.length > 10 ? '…' : ''}</div>
             <div style={{ marginTop: 12 }}>
               <input
                 value={folderName}

@@ -80,6 +80,66 @@ export function parseManual(text: string): string[] {
   return out;
 }
 
+/** Tách "en : vi" ngay trong ô tiếng Anh (cẩn thận từ gạch nối như well-known). */
+function splitInlinePair(enRaw: string): { en: string; vi: string } | null {
+  const trySep = (sep: string, strictRight: boolean): { en: string; vi: string } | null => {
+    const at = enRaw.indexOf(sep);
+    if (at <= 0) return null;
+    const left = cleanToken(enRaw.slice(0, at));
+    const right = enRaw.slice(at + sep.length).trim().slice(0, 200);
+    if (!left || !right) return null;
+    if (strictRight && !/[\s\u00C0-\u1EF9]/.test(right)) return null;
+    return { en: left, vi: right };
+  };
+  for (const sep of [' : ', ' - ', ' = ']) {
+    const r = trySep(sep, false);
+    if (r) return r;
+  }
+  for (const sep of [':', '=', '-']) {
+    const r = trySep(sep, true);
+    if (r) return r;
+  }
+  return null;
+}
+
+/** Tách cặp Anh/Việt: ô Anh + ô Việt ghép theo dòng; ô Anh cũng chấp nhận "en : vi". */
+export function parseManualPair(enText: string, viText: string): { entries: ImportEntry[]; skipped: number } {
+  const enLines = enText.split('\n');
+  const viLines = viText.split('\n');
+  const seen = new Set<string>();
+  const entries: ImportEntry[] = [];
+  let skipped = 0;
+  const n = Math.max(enLines.length, viLines.length);
+  for (let i = 0; i < n; i++) {
+    if (entries.length >= MAX_IMPORT_WORDS) break;
+    const enRaw = (enLines[i] ?? '').trim();
+    const viRaw = (viLines[i] ?? '').trim().slice(0, 200);
+    if (!enRaw && !viRaw) continue;
+    let en = cleanToken(enRaw);
+    let vi = viRaw;
+    if (!en && enRaw) {
+      // thử cú pháp "en : vi" ngay trong ô tiếng Anh
+      const pair = splitInlinePair(enRaw);
+      if (pair) {
+        en = pair.en;
+        vi = pair.vi;
+      }
+    }
+    if (!en) {
+      skipped += 1;
+      continue;
+    }
+    const key = en.toLowerCase();
+    if (seen.has(key)) {
+      skipped += 1;
+      continue;
+    }
+    seen.add(key);
+    entries.push({ en, vi, ipa: '', example: '' });
+  }
+  return { entries, skipped };
+}
+
 function normHeader(s: unknown): string {
   return String(s ?? '')
     .normalize('NFD')
