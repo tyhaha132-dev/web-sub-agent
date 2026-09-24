@@ -84,7 +84,7 @@ function spawnFloater(words: Word[], dir: Dir, diff: Diff, speedSetting: number,
     hint: makeHint(norm.length > 0 ? norm : answer, diff),
     x: 8 + Math.random() * 78,
     y: -10,
-    speed: (4.5 + speedSetting * 2) * (1 + 0.12 * (level - 1)),
+    speed: (3.2 + speedSetting * 1.4) * (1 + 0.1 * (level - 1)),
   };
 }
 
@@ -94,7 +94,7 @@ function stepGame(s: Snap, words: Word[], dir: Dir, diff: Diff, speedSetting: nu
   const level = 1 + Math.floor(s.blasted / 5);
   let { lives, score, blasted, spawned, lastSpawn } = s;
   let floaters = s.floaters.map((f) => ({ ...f, y: f.y + f.speed * dt }));
-  const interval = Math.max(600, 2400 - speedSetting * 350);
+  const interval = Math.max(900, 3000 - speedSetting * 400);
 
   if (spawned < WORDS_PER_GAME && floaters.length < 4 && now - lastSpawn >= interval && words.length > 0) {
     floaters = [...floaters, spawnFloater(words, dir, diff, speedSetting, level)];
@@ -274,6 +274,13 @@ export default function BlastGame({ words }: { words: Word[] }) {
 
   function start() {
     if (words.length === 0) return;
+    restart();
+  }
+
+  function restart() {
+    savedRef.current = false;
+    setStreak(0);
+    prevRef.current = { blasted: 0, lives: MAX_LIVES };
     setCount(3);
     setPhase('ready');
   }
@@ -394,7 +401,7 @@ export default function BlastGame({ words }: { words: Word[] }) {
       {(snap.phase === 'won' || snap.phase === 'lost') && (
         <div className="blast-end">
           <h2>{snap.phase === 'won' ? `🏆 Thắng! ${snap.score} điểm` : `💀 Thua rồi! ${snap.blasted}/${WORDS_PER_GAME} từ`}</h2>
-          <button className="blast-play" onClick={() => { savedRef.current = false; setStreak(0); prevRef.current = { blasted: 0, lives: MAX_LIVES }; setSnap(freshSnap(performance.now())); }}>🔁 Chơi lại</button>
+          <button className="blast-play" onClick={restart}>🔁 Chơi lại</button>
           <button className="btn btn-ghost" onClick={() => setPhase('setup')}>⚙️ Đổi chế độ</button>
         </div>
       )}

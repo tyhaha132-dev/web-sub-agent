@@ -376,7 +376,7 @@ a { text-decoration: none; }
 .blast-tip { max-width: 560px; margin: 16px auto 0; color: #a5b4fc; font-size: 14px; line-height: 1.7; }
 
 .blast-hud { display: flex; gap: 16px; justify-content: center; font-weight: 800; color: #fff; margin-bottom: 8px; flex-wrap: wrap; }
-.blast-arena { position: relative; height: 380px; border-top: 1px dashed #26315e; }
+.blast-arena { position: relative; height: 460px; border-top: 1px dashed #26315e; }
 .blast-ground { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; color: #f87171; font-size: 12px; border-top: 2px solid #f87171; padding-top: 2px; }
 
 .floater {
@@ -413,9 +413,9 @@ a { text-decoration: none; }
 /* ===== Card Blast: wide frame like reference ===== */
 @media (min-width: 1100px) {
   .blast-breakout {
-    width: 1120px;
-    max-width: 94vw;
-    margin-left: min(0px, max(-80px, calc((960px - 94vw) / 2)));
+    width: 1240px;
+    max-width: 96vw;
+    margin-left: min(0px, max(-140px, calc((960px - 96vw) / 2)));
   }
 }
 
@@ -445,7 +445,7 @@ a { text-decoration: none; }
 }
 .blast-hearts { font-size: 20px; }
 
-.blast-arena-tall { height: 520px; }
+.blast-arena-tall { height: 640px; }
 
 .blast-count {
   position: absolute;
