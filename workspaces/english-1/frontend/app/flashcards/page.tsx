@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   fetchWords,
+  getCachedWords,
   speak,
+  wakeBackend,
   SAMPLE_WORDS,
   type Word,
 } from '../../lib/api';
@@ -62,13 +64,20 @@ export default function Flashcards() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
+    wakeBackend();
+    const cached = getCachedWords();
+    if (cached.length > 0) {
+      setWords(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     withTimeout(fetchWords(''), 15000).then((w) => {
-      setWords(w && w.length > 0 ? w : SAMPLE_WORDS);
+      setWords((prev) => (w && w.length > 0 ? w : prev.length > 0 ? prev : SAMPLE_WORDS));
       setDeckIdx(0);
       setLoading(false);
     }).catch(() => {
-      setWords(SAMPLE_WORDS);
+      setWords((prev) => (prev.length > 0 ? prev : SAMPLE_WORDS));
       setDeckIdx(0);
       setLoading(false);
     });

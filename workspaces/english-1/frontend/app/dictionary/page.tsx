@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { fetchTopics, lookupWord, searchWords, speak, SINGLE_WORD_RE, extSearchLinks, type ExternalEntry, type Topic, type Word } from '../../lib/api';
+import { fetchTopics, getCachedTopics, lookupWord, searchWords, speak, wakeBackend, SINGLE_WORD_RE, extSearchLinks, type ExternalEntry, type Topic, type Word } from '../../lib/api';
 import ExtLinks from '../ext-links';
 
 export default function Dictionary() {
@@ -14,7 +14,10 @@ export default function Dictionary() {
   const [lookupLoading, setLookupLoading] = useState(false);
 
   useEffect(() => {
-    fetchTopics().then(setTopics).catch(() => {});
+    wakeBackend();
+    const cached = getCachedTopics();
+    if (cached.length > 0) setTopics(cached);
+    fetchTopics().then((t) => { if (t && t.length > 0) setTopics(t); }).catch(() => {});
     const params = new URLSearchParams(window.location.search);
     const t = params.get('topic') ?? '';
     if (t) {

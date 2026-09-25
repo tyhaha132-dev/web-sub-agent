@@ -1,0 +1,16 @@
+# Giữ backend free (Render) + DB (Neon) ấm: Render ngủ sau 1 lúc vắng khách,
+# lần mở đầu chờ ~50s. Ping /health (đã chạm DB) mỗi 10 phút.
+# Theo dõi quota compute Neon free — nếu chạm trần thì giãn cron ra.
+name: warmup
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake API + DB
+        run: curl -m 90 -f https://english-api-c6w0.onrender.com/health
