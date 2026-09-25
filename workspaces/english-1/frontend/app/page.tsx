@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { API_BASE } from '../lib/api';
+import { API_BASE, wakeBackend } from '../lib/api';
 
 const cards = [
   { href: '/dictionary', icon: '🔤', cls: 'sk-blue', title: 'Từ điển', desc: 'Tra nghĩa, phiên âm, ví dụ theo chủ đề', count: '50+ TỪ' },
@@ -15,6 +15,7 @@ const cards = [
 export default function Home() {
   const [total, setTotal] = useState('50+');
   useEffect(() => {
+    wakeBackend();
     fetch(`${API_BASE}/api/words`, { cache: 'no-store' })
       .then((r) => r.json())
       .then((d: { words?: unknown[] }) => { if (d.words) setTotal(String(d.words.length)); })

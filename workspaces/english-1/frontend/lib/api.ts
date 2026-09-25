@@ -51,15 +51,17 @@ export const SAMPLE_WORDS: Word[] = [
   { id: 5, en: 'success', vi: 'thành công', example: 'Hard work leads to success.', topic: 'general', ipa: '/səkˈses/' },
 ];
 
-export async function fetchWords(topic = ''): Promise<Word[]> {
+export async function fetchWords(topic = ''): Promise<Word[] | null> {
   try {
     const url = topic ? `${API_BASE}/api/words?topic=${encodeURIComponent(topic)}` : `${API_BASE}/api/words`;
     const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) return SAMPLE_WORDS;
+    if (!res.ok) return null;
     const data = (await res.json()) as { words?: Word[] };
-    return data.words && data.words.length > 0 ? data.words : SAMPLE_WORDS;
+    const words = data.words && data.words.length > 0 ? data.words : null;
+    if (!topic && words && words.length > 0) writeCache(CACHE_WORDS_KEY, words);
+    return words;
   } catch {
-    return SAMPLE_WORDS;
+    return null;
   }
 }
 
@@ -79,6 +81,58 @@ export async function searchWords(q: string, topic = ''): Promise<Word[]> {
 
 export const SINGLE_WORD_RE = /^[A-Za-z][A-Za-z\s\-']*$/;
 export const MAX_LOOKUP_LEN = 60;
+
+const CACHE_TOPICS_KEY = 'englishfun_cache_topics';
+const CACHE_WORDS_KEY = 'englishfun_cache_words';
+const CACHE_TTL_MS = 24 * 3600 * 1000;
+
+interface CacheBox<T> {
+  at: number;
+  data: T;
+}
+
+function readCache<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const box = JSON.parse(raw) as CacheBox<T>;
+    if (!box || typeof box.at !== 'number' || Date.now() - box.at > CACHE_TTL_MS) return null;
+    return box.data;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache<T>(key: string, data: T): void {
+  try {
+    localStorage.setItem(key, JSON.stringify({ at: Date.now(), data }));
+  } catch {
+    /* đầy bộ nhớ: bỏ qua */
+  }
+}
+
+export function getCachedTopics(): Topic[] {
+  const t = readCache<Topic[]>(CACHE_TOPICS_KEY);
+  return Array.isArray(t) ? t : [];
+}
+
+export function getCachedWords(): Word[] {
+  const w = readCache<Word[]>(CACHE_WORDS_KEY);
+  return Array.isArray(w) ? w : [];
+}
+
+/** Bắn 1 phát đánh thức backend (Render/Neon) mà không chặn UI. */
+export function wakeBackend(): void {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 10000);
+    fetch(`${API_BASE}/health`, { cache: 'no-store', signal: ctrl.signal })
+      .catch(() => {})
+      .finally(() => clearTimeout(t));
+  } catch {
+    /* SSR: bỏ qua */
+  }
+}
 
 export function extSearchLinks(en: string): { oxford: string; cambridge: string; google: string } {
   const slug = en.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '');
@@ -131,14 +185,16 @@ export function playAudio(url: string | null, fallbackText: string): void {
   }
 }
 
-export async function fetchTopics(): Promise<Topic[]> {
+export async function fetchTopics(): Promise<Topic[] | null> {
   try {
     const res = await fetch(`${API_BASE}/api/topics`, { cache: 'no-store' });
-    if (!res.ok) return [];
+    if (!res.ok) return null;
     const data = (await res.json()) as { topics?: Topic[] };
-    return data.topics ?? [];
+    const topics = data.topics && data.topics.length > 0 ? data.topics : null;
+    if (topics) writeCache(CACHE_TOPICS_KEY, topics);
+    return topics;
   } catch {
-    return [];
+    return null;
   }
 }
 
