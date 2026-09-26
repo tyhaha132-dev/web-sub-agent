@@ -19,3 +19,17 @@
 - Có gì chưa rõ thì **hỏi trước khi đoán**.
 - Báo cáo ngắn gọn, dựa trên kết quả chạy thật (log, test, screenshot), không suy đoán.
 - Secret (`.env`, mật khẩu) không bao giờ commit; `.env` đã nằm trong `.gitignore`.
+
+## Khởi động phiên (session startup)
+
+- Đầu mỗi phiên trong project này, đọc 2 file plan của project trước khi làm việc:
+  `%USERPROFILE%\.opencode\plan\web-sub-agent\handoff.md` (tiến trình/quyết định)
+  và `%USERPROFILE%\.opencode\plan\web-sub-agent\runlog.md` (log append-only).
+- Log mới chỉ thêm vào `runlog.md` (kèm timestamp), không sửa entry cũ;
+  `handoff.md` giữ ngắn, cập nhật tại chỗ.
+
+## Cập nhật plan (Definition of Done)
+
+- Xong mỗi tính năng/sửa lỗi/phát hiện mới: load skill `plan-update` rồi ghi
+  `runlog.md` (dùng script `log.ts`, kèm timestamp) + cập nhật `handoff.md`.
+  Không coi là xong nếu chưa ghi plan.

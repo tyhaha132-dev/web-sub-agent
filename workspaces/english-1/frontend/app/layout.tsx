@@ -14,6 +14,7 @@ const links = [
   ['Từ điển', '/dictionary'],
   ['Luyện tập', '/flashcards'],
   ['Quiz', '/quiz'],
+  ['TOEIC', '/toeic'],
   ['Tiến độ', '/progress'],
   ['Thư mục', '/folders'],
 ] as const;
