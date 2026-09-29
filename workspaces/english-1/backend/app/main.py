@@ -476,6 +476,7 @@ class ToeicSubmit(BaseModel):
     meta: str = Field(default="", max_length=60)
     client_id: str = Field(default="", max_length=64)
     duration_s: int = Field(default=0, ge=0, le=7200)
+    expected_total: int = Field(default=0, ge=0, le=200)
 
 
 @app.post("/api/toeic/submit")
@@ -519,6 +520,10 @@ def toeic_submit(s: ToeicSubmit) -> dict:
                     "grammar_tag": row["grammar_tag"],
                 })
         total = len(s.answers)
+        answered = len(s.answers)
+        # Nop bai som: cau bo trong tinh 0 diem, total = so cau cua de.
+        if s.expected_total >= answered and s.expected_total <= 200:
+            total = s.expected_total if s.expected_total >= 1 else answered
         pct = score / total
         band = _band_for_pct(pct)
         estimate = round((band["min"] + band["max"]) / 2 / 10) * 10
@@ -526,7 +531,7 @@ def toeic_submit(s: ToeicSubmit) -> dict:
             text("INSERT INTO toeic_attempts (score, total, kind, band, meta, errors, client_id, duration_s) VALUES (:s, :t, :k, :b, :m, :e, :c, :d)"),
             {"s": score, "t": total, "k": s.kind, "b": band["level"], "m": s.meta, "e": _json.dumps(errors), "c": s.client_id, "d": s.duration_s},
         )
-    return {"score": score, "total": total, "band": band, "estimate": estimate, "details": details}
+    return {"score": score, "total": total, "answered": answered, "band": band, "estimate": estimate, "details": details}
 
 
 @app.get("/api/toeic/attempts")

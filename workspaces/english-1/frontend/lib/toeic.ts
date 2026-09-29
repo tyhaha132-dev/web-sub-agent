@@ -29,6 +29,7 @@ export interface ToeicDetail {
 export interface ToeicResult {
   score: number;
   total: number;
+  answered?: number;
   band: ToeicBand;
   estimate: number;
   details: ToeicDetail[];
@@ -77,7 +78,7 @@ export async function submitToeic(
   answers: Array<{ id: number; choice: number }>,
   kind: 'practice',
   meta = '',
-  extra: { client_id?: string; duration_s?: number } = {},
+  extra: { client_id?: string; duration_s?: number; expected_total?: number } = {},
 ): Promise<ToeicResult> {
   const res = await fetch(`${API_BASE}/api/toeic/submit`, {
     method: 'POST',
@@ -160,6 +161,14 @@ export function computeStreak(attempts: ToeicAttempt[]): number {
     cur.setUTCDate(cur.getUTCDate() - 1);
   }
   return streak;
+}
+
+// So cau thuc te da tra loi trong 1 attempt lich su.
+// errors chi luu cau sai -> answered = dung + sai. Khong co errors (du lieu cu) thi coi nhu lam full.
+export function answeredOf(a: ToeicAttempt): number {
+  const errLen = a.errors?.length;
+  if (errLen == null) return a.total;
+  return Math.max(0, Math.min(a.total, a.score + errLen));
 }
 
 export function avgSecondsPerQ(attempts: ToeicAttempt[]): number | null {
