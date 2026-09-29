@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import {
+  answeredOf,
   avgSecondsPerQ,
   computeStreak,
   fetchToeicAttempts,
@@ -152,10 +153,11 @@ export default function ToeicHome() {
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 80 }}>
         {attempts.slice(0, 10).reverse().map((a) => {
           const pct = a.total === 0 ? 0 : a.score / a.total;
+          const answered = answeredOf(a);
           return (
             <div
               key={a.id}
-              title={`${a.score}/${a.total} ${a.band}`}
+              title={`${a.score}/${a.total} ${a.band}${answered < a.total ? ` (làm ${answered}/${a.total})` : ''}`}
               style={{ flex: 1, height: `${Math.max(6, pct * 100)}%`, background: 'var(--accent, #7c3aed)', borderRadius: 4 }}
             />
           );
@@ -184,7 +186,7 @@ export default function ToeicHome() {
       {attempts.length === 0 && <p>Chưa có lượt nào — làm bài đầu tiên đi! 🚀</p>}
       {attempts.slice(0, 10).map((a) => (
         <div key={a.id} className="panel" style={{ marginTop: 8 }}>
-          <p>{a.score}/{a.total} — {a.band} ({a.kind === 'placement' ? 'kiểm tra (cũ)' : a.kind === 'mock' ? 'thi thử (cũ)' : 'luyện tập'})</p>
+          <p>{a.score}/{a.total} — {a.band} ({a.kind === 'placement' ? 'kiểm tra (cũ)' : a.kind === 'mock' ? 'thi thử (cũ)' : 'luyện tập'}){answeredOf(a) < a.total ? ` • đã làm ${answeredOf(a)}/${a.total}` : ''}</p>
         </div>
       ))}
     </main>

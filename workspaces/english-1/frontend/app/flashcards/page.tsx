@@ -59,7 +59,8 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
 
 export default function Flashcards() {
   const [mode, setMode] = useState<Mode>('flip');
-  const [deckIdx, setDeckIdx] = useState(0);
+  const [combine, setCombine] = useState(false);
+  const [selected, setSelected] = useState<number[]>([0]);
   const [words, setWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -74,33 +75,76 @@ export default function Flashcards() {
     }
     withTimeout(fetchWords(''), 15000).then((w) => {
       setWords((prev) => (w && w.length > 0 ? w : prev.length > 0 ? prev : SAMPLE_WORDS));
-      setDeckIdx(0);
+      setSelected([0]);
       setLoading(false);
     }).catch(() => {
       setWords((prev) => (prev.length > 0 ? prev : SAMPLE_WORDS));
-      setDeckIdx(0);
+      setSelected([0]);
       setLoading(false);
     });
   }, []);
 
   const decks = useMemo(() => buildDecks(words), [words]);
-  const deck = decks[Math.min(deckIdx, Math.max(decks.length - 1, 0))] ?? null;
-  const deckWords = deck ? deck.words : [];
+  const validSelected = selected.filter((i) => i >= 0 && i < decks.length);
+  const activeIdx = validSelected.length > 0 ? validSelected : decks.length > 0 ? [0] : [];
+  const deckWords = activeIdx.flatMap((i) => decks[i]?.words ?? []);
+
+  function toggleDeck(i: number) {
+    setSelected((prev) => {
+      const valid = prev.filter((x) => x >= 0 && x < decks.length);
+      if (valid.includes(i)) {
+        const next = valid.filter((x) => x !== i);
+        return next.length > 0 ? next : valid;
+      }
+      return [...valid, i].sort((a, b) => a - b);
+    });
+  }
+
+  function clickDeck(i: number) {
+    if (!combine) {
+      setSelected([i]);
+      return;
+    }
+    toggleDeck(i);
+  }
+
+  function toggleCombine() {
+    if (!combine) {
+      setCombine(true);
+    } else {
+      setCombine(false);
+      setSelected((prev) => [prev[0] ?? 0]);
+    }
+  }
 
   return (
     <main>
       <h1>🃏 Luyện tập từ vựng</h1>
       <div className="topic-row">
+        <button
+          className={`topic-chip ${combine ? 'active' : ''}`}
+          onClick={toggleCombine}
+          title="Bật để chọn nhiều bộ gộp lại học chung"
+        >
+          🧩 Gộp bộ {combine ? '(đang bật)' : ''}
+        </button>
         {decks.map((d, i) => (
           <button
             key={d.name}
-            className={`topic-chip ${i === deckIdx ? 'active' : ''}`}
-            onClick={() => setDeckIdx(i)}
+            className={`topic-chip ${activeIdx.includes(i) ? 'active' : ''}`}
+            onClick={() => clickDeck(i)}
           >
             {d.name} ({d.words.length})
           </button>
         ))}
       </div>
+      <p style={{ marginTop: 8 }}>
+        {combine
+          ? `🗂️ Đang học ${activeIdx.length}/${decks.length} bộ — `
+          : `📚 Bộ ${decks[activeIdx[0]]?.name ?? ''} — `}
+        <b>{deckWords.length} từ</b>
+        {combine ? ' (bấm để chọn/bỏ bộ)' : ' (bật Gộp bộ để học nhiều bộ chung)'}
+      </p>
       <div className="topic-row">
         {TABS.map((t) => (
           <button
@@ -112,10 +156,10 @@ export default function Flashcards() {
           </button>
         ))}
       </div>
-      {loading || !deck ? (
+      {loading || deckWords.length === 0 ? (
         <div className="panel">⏳ Đang tải các bộ từ... (backend ngủ thì chờ một chút nhé)</div>
       ) : (
-        <div key={`${mode}-${deck.name}`}>
+        <div key={`${mode}-${activeIdx.join(',')}`}>
           {mode === 'flip' && <FlipMode words={deckWords} />}
           {mode === 'write' && <WriteMode words={deckWords} />}
           {mode === 'listen' && <ListenMode words={deckWords} />}

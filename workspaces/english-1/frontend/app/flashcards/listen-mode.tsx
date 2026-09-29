@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { speak, type Word } from '../../lib/api';
 
 const rowStyle = { marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap' } as const;
@@ -12,11 +12,12 @@ export function ListenMode({ words }: { words: Word[] }) {
   const [verdict, setVerdict] = useState<'idle' | 'right' | 'wrong'>('idle');
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(0);
-  const total = Math.min(order.length, 10);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const total = order.length;
   const card = order[index % order.length] as Word;
 
   function restart() {
-    const arr = [...words].sort(() => Math.random() - 0.5).slice(0, 10);
+    const arr = [...words].sort(() => Math.random() - 0.5);
     setOrder(arr.length > 0 ? arr : words);
     setIndex(0); setValue(''); setVerdict('idle'); setScore(0); setDone(0);
   }
@@ -26,6 +27,10 @@ export function ListenMode({ words }: { words: Word[] }) {
     const t = setTimeout(() => speak(words[0]?.en ?? 'hello'), 600);
     return () => clearTimeout(t);
   }, [words.length]);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, [index, verdict]);
 
   function play() {
     speak(card.en);
@@ -48,10 +53,18 @@ export function ListenMode({ words }: { words: Word[] }) {
     setTimeout(() => speak(nextCard.en), 400);
   }
 
+  function handleKey(e: { key: string; preventDefault: () => void }) {
+    if (e.key === 'Enter' && verdict !== 'idle') {
+      e.preventDefault();
+      next();
+    }
+  }
+
   if (done >= total) {
+    const rate = total === 0 ? 0 : score / total;
     return (
       <div>
-        <div className="score-banner">{score >= 8 ? '🏆 Tai thính!' : score >= 5 ? '💪 Nghe khá!' : '📚 Nghe thêm nhé!'}<br />{score}/{total}</div>
+        <div className="score-banner">{rate >= 0.8 ? '🏆 Tai thính!' : rate >= 0.5 ? '💪 Nghe khá!' : '📚 Nghe thêm nhé!'}<br />{score}/{total}</div>
         <div style={rowStyle}><button className="btn btn-primary" onClick={restart}>🔁 Chơi lại</button></div>
       </div>
     );
@@ -63,7 +76,7 @@ export function ListenMode({ words }: { words: Word[] }) {
       <div className="panel" style={{ textAlign: 'center' }}>
         <button className="btn btn-primary" onClick={play} style={{ fontSize: 22, padding: '16px 40px' }}>🔊 Nghe lại</button>
         <form className="search-row" onSubmit={submit} style={{ marginTop: 16 }}>
-          <input value={value} onChange={(e) => setValue(e.target.value)} placeholder="Nghe được từ gì? Gõ vào..." autoFocus />
+          <input ref={inputRef} value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={handleKey} placeholder="Nghe được từ gì? Gõ vào..." autoFocus />
           <button className="btn btn-primary" type="submit">OK</button>
         </form>
         {verdict === 'right' && <p>✅ Đúng rồi!</p>}
