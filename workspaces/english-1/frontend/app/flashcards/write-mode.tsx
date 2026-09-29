@@ -75,8 +75,8 @@ export function WriteMode({ words }: { words: Word[] }) {
           <input ref={inputRef} value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={handleKey} placeholder="Gõ từ tiếng Anh..." autoFocus />
           <button className="btn btn-primary" type="submit">OK</button>
         </form>
-        {verdict === 'right' && <p>✅ Đúng rồi!</p>}
-        {verdict === 'wrong' && <p>❌ Sai — đáp án: <b>{card.en}</b> {card.ipa}</p>}
+        {verdict === 'right' && <p>✅ Đúng rồi! <b>{card.en}</b>{card.ipa ? ` ${card.ipa}` : ''} ({card.vi})</p>}
+        {verdict === 'wrong' && <p>❌ Sai — đáp án: <b>{card.en}</b>{card.ipa ? ` ${card.ipa}` : ''} ({card.vi})</p>}
         {verdict !== 'idle' && <button className="btn btn-ghost" onClick={next}>Tiếp →</button>}
       </div>
     </div>
