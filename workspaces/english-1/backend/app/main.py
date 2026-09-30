@@ -10,7 +10,7 @@ import urllib.parse
 import urllib.request
 
 import bcrypt
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
@@ -143,6 +143,19 @@ EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 RESET_TTL_MIN = 15
 RESET_MAX_ATTEMPTS = 5
 FORGOT_COOLDOWN_S = 60
+
+
+def _smtp_configured() -> bool:
+    return bool(os.getenv("SMTP_USER", "") and os.getenv("SMTP_PASS", ""))
+
+
+def _send_reset_mail_bg(to_email: str, code: str) -> None:
+    """Gửi mail nền (sau khi API đã trả lời): lỗi chỉ ghi log, không treo request."""
+    try:
+        _send_reset_mail(to_email, code)
+        print(f"[auth] da gui ma reset toi {to_email}", flush=True)
+    except Exception as exc:  # noqa: BLE001 - mail hỏng vẫn giữ mã trong DB cho lần thử sau
+        print(f"[auth] gui mail that bai: {type(exc).__name__}", flush=True)
 
 
 def _send_reset_mail(to_email: str, code: str) -> bool:
@@ -278,7 +291,7 @@ class ResetIn(BaseModel):
 
 
 @app.post("/api/auth/forgot")
-def auth_forgot(body: ForgotIn) -> dict:
+def auth_forgot(body: ForgotIn, background: BackgroundTasks) -> dict:
     # Luôn trả ok:true để không lộ tài khoản nào tồn tại.
     engine = get_engine()
     with engine.begin() as conn:
@@ -309,10 +322,15 @@ def auth_forgot(body: ForgotIn) -> dict:
                 ),
                 {"u": row["id"], "h": _hash_pw(code), "m": RESET_TTL_MIN},
             )
-            try:
-                _send_reset_mail(str(row["email"]), code)
-            except Exception as exc:  # noqa: BLE001 - mail hỏng vẫn trả ok
-                print(f"[auth] gui mail that bai: {type(exc).__name__}", flush=True)
+            email = str(row["email"])
+            if _smtp_configured():
+                # Gửi nền để Gmail chậm/treo không treo request (UI khỏi đơ nút "Đang gửi").
+                background.add_task(_send_reset_mail_bg, email, code)
+            else:
+                try:
+                    _send_reset_mail(email, code)
+                except Exception as exc:  # noqa: BLE001 - dev chưa cấu hình: chỉ in log
+                    print(f"[auth] gui mail that bai: {type(exc).__name__}", flush=True)
     return {"ok": True}
 
 
