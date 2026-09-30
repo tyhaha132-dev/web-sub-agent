@@ -8,7 +8,6 @@ import {
   fetchToeicAttempts,
   fetchToeicLevels,
   fetchToeicProfile,
-  getClientId,
   loadToeicTarget,
   loadWeekDone,
   resetWeekDone,
@@ -70,9 +69,8 @@ export default function ToeicHome() {
   useEffect(() => {
     setTarget(loadToeicTarget());
     fetchToeicLevels().then(setLevels).catch(() => setError('😢 Không tải được thang điểm (backend chưa chạy?).'));
-    const cid = getClientId();
-    fetchToeicAttempts(cid).then(setAttempts).catch(() => {});
-    fetchToeicProfile(cid).then((p) => {
+    fetchToeicAttempts().then(setAttempts).catch(() => {});
+    fetchToeicProfile().then((p) => {
       if (p) {
         if (p.display_name) setName(p.display_name);
         if (p.target_score) {
@@ -86,13 +84,13 @@ export default function ToeicHome() {
   function pickTarget(v: number) {
     setTarget(v);
     saveToeicTarget(v);
-    saveToeicProfile({ client_id: getClientId(), display_name: name, target_score: v }).catch(() => {});
+    saveToeicProfile({ display_name: name, target_score: v }).catch(() => {});
   }
 
   async function saveName() {
     setNameSaved(false);
     try {
-      await saveToeicProfile({ client_id: getClientId(), display_name: name.trim(), target_score: target });
+      await saveToeicProfile({ display_name: name.trim(), target_score: target });
       setNameSaved(true);
     } catch { /* backend chưa chạy */ }
   }

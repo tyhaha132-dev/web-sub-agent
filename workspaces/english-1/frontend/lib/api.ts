@@ -1,3 +1,5 @@
+import { authFetch } from './auth';
+
 export interface Word {
   id: number;
   en: string;
@@ -53,8 +55,8 @@ export const SAMPLE_WORDS: Word[] = [
 
 export async function fetchWords(topic = ''): Promise<Word[] | null> {
   try {
-    const url = topic ? `${API_BASE}/api/words?topic=${encodeURIComponent(topic)}` : `${API_BASE}/api/words`;
-    const res = await fetch(url, { cache: 'no-store' });
+    const url = topic ? `/api/words?topic=${encodeURIComponent(topic)}` : '/api/words';
+    const res = await authFetch(url);
     if (!res.ok) return null;
     const data = (await res.json()) as { words?: Word[] };
     const words = data.words && data.words.length > 0 ? data.words : null;
@@ -67,9 +69,8 @@ export async function fetchWords(topic = ''): Promise<Word[] | null> {
 
 export async function searchWords(q: string, topic = ''): Promise<Word[]> {
   try {
-    const res = await fetch(
-      `${API_BASE}/api/words/search?q=${encodeURIComponent(q)}&topic=${encodeURIComponent(topic)}`,
-      { cache: 'no-store' },
+    const res = await authFetch(
+      `/api/words/search?q=${encodeURIComponent(q)}&topic=${encodeURIComponent(topic)}`,
     );
     if (!res.ok) return [];
     const data = (await res.json()) as { words?: Word[] };
@@ -145,10 +146,7 @@ export function extSearchLinks(en: string): { oxford: string; cambridge: string;
 
 export async function lookupWord(en: string): Promise<LookupResult | null> {
   try {
-    const res = await fetch(
-      `${API_BASE}/api/words/lookup?en=${encodeURIComponent(en)}`,
-      { cache: 'no-store' },
-    );
+    const res = await authFetch(`/api/words/lookup?en=${encodeURIComponent(en)}`);
     if (!res.ok) return null;
     const data = (await res.json()) as LookupResult;
     return data;
@@ -159,10 +157,7 @@ export async function lookupWord(en: string): Promise<LookupResult | null> {
 
 export async function fetchAudio(en: string): Promise<string | null> {
   try {
-    const res = await fetch(
-      `${API_BASE}/api/words/audio?en=${encodeURIComponent(en)}`,
-      { cache: 'no-store' },
-    );
+    const res = await authFetch(`/api/words/audio?en=${encodeURIComponent(en)}`);
     if (!res.ok) return null;
     const data = (await res.json()) as { audio?: string | null };
     return data.audio ?? null;
@@ -187,7 +182,7 @@ export function playAudio(url: string | null, fallbackText: string): void {
 
 export async function fetchTopics(): Promise<Topic[] | null> {
   try {
-    const res = await fetch(`${API_BASE}/api/topics`, { cache: 'no-store' });
+    const res = await authFetch('/api/topics');
     if (!res.ok) return null;
     const data = (await res.json()) as { topics?: Topic[] };
     const topics = data.topics && data.topics.length > 0 ? data.topics : null;
@@ -199,16 +194,15 @@ export async function fetchTopics(): Promise<Topic[] | null> {
 }
 
 export async function fetchQuiz(count = 10): Promise<QuizQuestion[]> {
-  const res = await fetch(`${API_BASE}/api/quiz/random?count=${count}`, { cache: 'no-store' });
+  const res = await authFetch(`/api/quiz/random?count=${count}`);
   if (!res.ok) throw new Error(`quiz API responded ${res.status}`);
   const data = (await res.json()) as { questions?: QuizQuestion[] };
   return data.questions ?? [];
 }
 
 export async function saveProgress(score: number, total: number): Promise<void> {
-  await fetch(`${API_BASE}/api/progress`, {
+  await authFetch('/api/progress', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ score, total }),
   });
 }

@@ -1,4 +1,5 @@
-import { API_BASE } from './api';
+import { authFetch } from './auth';
+
 
 export interface ToeicBand {
   min: number;
@@ -58,16 +59,15 @@ export interface ToeicError {
 export const TOEIC_TARGET_KEY = 'toeic-target';
 
 export async function fetchToeicLevels(): Promise<ToeicBand[]> {
-  const res = await fetch(`${API_BASE}/api/toeic/levels`, { cache: 'no-store' });
+  const res = await authFetch('/api/toeic/levels');
   if (!res.ok) throw new Error(`levels API responded ${res.status}`);
   const data = (await res.json()) as { levels?: ToeicBand[] };
   return data.levels ?? [];
 }
 
 export async function fetchToeicReading(count = 10, part: 5 | 6 | 7 = 5, tag = ''): Promise<ToeicQuestion[]> {
-  const res = await fetch(
-    `${API_BASE}/api/toeic/reading?part=${part}&count=${count}${tag ? `&tag=${encodeURIComponent(tag)}` : ''}`,
-    { cache: 'no-store' },
+  const res = await authFetch(
+    `/api/toeic/reading?part=${part}&count=${count}${tag ? `&tag=${encodeURIComponent(tag)}` : ''}`,
   );
   if (!res.ok) throw new Error(`reading API responded ${res.status}`);
   const data = (await res.json()) as { questions?: ToeicQuestion[] };
@@ -78,23 +78,19 @@ export async function submitToeic(
   answers: Array<{ id: number; choice: number }>,
   kind: 'practice',
   meta = '',
-  extra: { client_id?: string; duration_s?: number; expected_total?: number } = {},
+  extra: { duration_s?: number; expected_total?: number } = {},
 ): Promise<ToeicResult> {
-  const res = await fetch(`${API_BASE}/api/toeic/submit`, {
+  const res = await authFetch('/api/toeic/submit', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ answers, kind, meta, ...extra }),
   });
   if (!res.ok) throw new Error(`submit API responded ${res.status}`);
   return (await res.json()) as ToeicResult;
 }
 
-export async function fetchToeicAttempts(clientId = ''): Promise<ToeicAttempt[]> {
+export async function fetchToeicAttempts(): Promise<ToeicAttempt[]> {
   try {
-    const res = await fetch(
-      `${API_BASE}/api/toeic/attempts${clientId ? `?client_id=${encodeURIComponent(clientId)}` : ''}`,
-      { cache: 'no-store' },
-    );
+    const res = await authFetch('/api/toeic/attempts');
     if (!res.ok) return [];
     const data = (await res.json()) as { history?: ToeicAttempt[] };
     return data.history ?? [];
@@ -103,31 +99,15 @@ export async function fetchToeicAttempts(clientId = ''): Promise<ToeicAttempt[]>
   }
 }
 
-// Anonymous device profile (no passwords): client UUID identifies the device.
-const CLIENT_KEY = 'toeic-client-id';
-
-export function getClientId(): string {
-  try {
-    let v = window.localStorage.getItem(CLIENT_KEY) ?? '';
-    if (!/^[0-9a-f-]{8,64}$/i.test(v)) {
-      v = (window.crypto?.randomUUID?.() ?? `dev-${Date.now()}-${Math.floor(Math.random() * 1e9)}`).slice(0, 64);
-      window.localStorage.setItem(CLIENT_KEY, v);
-    }
-    return v;
-  } catch {
-    return 'dev-anon';
-  }
-}
-
 export interface ToeicProfile {
-  client_id: string;
+  username?: string;
   display_name: string;
   target_score: number;
 }
 
-export async function fetchToeicProfile(clientId: string): Promise<ToeicProfile | null> {
+export async function fetchToeicProfile(): Promise<ToeicProfile | null> {
   try {
-    const res = await fetch(`${API_BASE}/api/toeic/profile?client_id=${encodeURIComponent(clientId)}`, { cache: 'no-store' });
+    const res = await authFetch('/api/toeic/profile');
     if (!res.ok) return null;
     return (await res.json()) as ToeicProfile;
   } catch {
@@ -136,9 +116,8 @@ export async function fetchToeicProfile(clientId: string): Promise<ToeicProfile 
 }
 
 export async function saveToeicProfile(p: ToeicProfile): Promise<void> {
-  await fetch(`${API_BASE}/api/toeic/profile`, {
+  await authFetch('/api/toeic/profile', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(p),
   });
 }

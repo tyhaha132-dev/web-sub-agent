@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import {
+  deleteFolder,
+  fetchFolders,
   knownCount,
-  loadFolders,
   makeFolder,
-  saveFolders,
+  putFolder,
   type Folder,
   type ImportEntry,
 } from '../../lib/folders';
@@ -13,29 +14,53 @@ import ImportModal from './import-modal';
 
 export default function Folders() {
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [showImport, setShowImport] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameVal, setRenameVal] = useState('');
 
   useEffect(() => {
-    setFolders(loadFolders());
+    fetchFolders()
+      .then(setFolders)
+      .catch(() => setError('😢 Không tải được thư mục (backend chưa chạy?).'))
+      .finally(() => setLoading(false));
   }, []);
 
-  function persist(next: Folder[]) {
-    setFolders(next);
-    saveFolders(next);
+  async function persist(next: Folder) {
+    const prev = folders;
+    setFolders((fs) => fs.map((x) => (x.id === next.id ? next : x)));
+    try {
+      await putFolder(next);
+    } catch {
+      setFolders(prev);
+      setError('😢 Không lưu được (mất mạng?). Thử lại nhé!');
+    }
   }
 
-  function createEmpty() {
+  async function createEmpty() {
     const f = makeFolder(`Thư mục ${folders.length + 1}`, []);
-    persist([f, ...folders]);
+    setError('');
+    try {
+      await putFolder(f);
+      setFolders([f, ...folders]);
+    } catch {
+      setError('😢 Không tạo được thư mục. Thử lại nhé!');
+    }
   }
 
-  function removeFolder(id: string) {
+  async function removeFolder(id: string) {
     const f = folders.find((x) => x.id === id);
     if (!f) return;
     if (!window.confirm(`Xóa thư mục “${f.name}” (${f.words.length} từ)?`)) return;
-    persist(folders.filter((x) => x.id !== id));
+    const prev = folders;
+    setFolders(folders.filter((x) => x.id !== id));
+    try {
+      await deleteFolder(id);
+    } catch {
+      setFolders(prev);
+      setError('😢 Không xóa được. Thử lại nhé!');
+    }
   }
 
   function startRename(f: Folder) {
@@ -45,8 +70,10 @@ export default function Folders() {
 
   function commitRename(id: string) {
     const name = renameVal.trim().slice(0, 80);
-    if (name) persist(folders.map((x) => (x.id === id ? { ...x, name } : x)));
     setRenaming(null);
+    if (!name) return;
+    const f = folders.find((x) => x.id === id);
+    if (f && f.name !== name) void persist({ ...f, name });
   }
 
   return (
@@ -55,14 +82,16 @@ export default function Folders() {
       <div className="panel">
         <p style={{ marginTop: 0 }}>
           {folders.length} thư mục · {folders.reduce((n, f) => n + f.words.length, 0)} từ đã lưu
-          <span style={{ color: 'var(--muted)' }}> (lưu trên máy này, xóa cache là mất)</span>
+          <span style={{ color: 'var(--muted)' }}> (lưu theo tài khoản, đổi máy vẫn còn)</span>
         </p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="btn btn-primary" onClick={() => setShowImport(true)}>⬇️ Import từ vựng</button>
-          <button className="btn btn-ghost" onClick={createEmpty}>＋ Tạo thư mục mới</button>
+          <button className="btn btn-ghost" onClick={() => void createEmpty()}>＋ Tạo thư mục mới</button>
         </div>
+        {error && <p>{error}</p>}
       </div>
-      {folders.length === 0 && (
+      {loading && <div className="panel">⏳ Đang tải thư mục...</div>}
+      {!loading && folders.length === 0 && (
         <div className="panel">Chưa có thư mục nào. Bấm <b>Import từ vựng</b> để thêm từ tay hoặc từ file Excel nhé!</div>
       )}
       {folders.map((f) => {
@@ -94,7 +123,7 @@ export default function Folders() {
             <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
               <a className="btn btn-ghost" href={`/folders/${f.id}`}>Mở</a>
               <button className="btn btn-ghost" onClick={() => startRename(f)}>✏️ Đổi tên</button>
-              <button className="btn btn-ghost" onClick={() => removeFolder(f.id)}>🗑️ Xóa</button>
+              <button className="btn btn-ghost" onClick={() => void removeFolder(f.id)}>🗑️ Xóa</button>
             </div>
           </div>
         );
@@ -103,7 +132,13 @@ export default function Folders() {
         <ImportModal
           mode="new"
           onClose={() => setShowImport(false)}
-          onSaveEntries={(entries, name) => { persist([makeFolder(name || 'Thư mục mới', entries), ...folders]); setShowImport(false); }}
+          onSaveEntries={(entries, name) => {
+            const f = makeFolder(name || 'Thư mục mới', entries);
+            setShowImport(false);
+            putFolder(f)
+              .then(() => setFolders((fs) => [f, ...fs]))
+              .catch(() => setError('😢 Không lưu được thư mục mới. Thử lại nhé!'));
+          }}
         />
       )}
     </main>

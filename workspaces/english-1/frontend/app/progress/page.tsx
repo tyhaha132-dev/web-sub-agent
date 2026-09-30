@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { API_BASE } from '../../lib/api';
+import { authFetch } from '../../lib/auth';
 
 interface Attempt { id: number; score: number; total: number; created_at: string; }
 
@@ -10,7 +10,7 @@ export default function Progress() {
   const [avg, setAvg] = useState(0);
   const [history, setHistory] = useState<Attempt[]>([]);
   useEffect(() => {
-    fetch(`${API_BASE}/api/progress`, { cache: 'no-store' })
+    authFetch('/api/progress')
       .then((r) => r.json())
       .then((d: { attempts?: number; avg_rate?: number; history?: Attempt[] }) => {
         setAttempts(d.attempts ?? 0);

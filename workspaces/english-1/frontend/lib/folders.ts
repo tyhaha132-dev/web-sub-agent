@@ -1,4 +1,5 @@
 import { lookupWord, type QuizQuestion, type Word } from './api';
+import { authFetch } from './auth';
 
 export type WordStatus = 'new' | 'learning' | 'known';
 
@@ -26,7 +27,6 @@ export interface Folder {
   stats: FolderStats;
 }
 
-export const FOLDERS_KEY = 'englishfun_folders_v1';
 export const MAX_IMPORT_WORDS = 500;
 export const MAX_FOLDER_WORDS = 500;
 export const MAX_FILE_BYTES = 2 * 1024 * 1024;
@@ -36,23 +36,58 @@ export function uid(): string {
   return `${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
 }
 
-export function loadFolders(): Folder[] {
-  try {
-    const raw = localStorage.getItem(FOLDERS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as Folder[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+function normalizeFolder(raw: unknown): Folder | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const f = raw as Record<string, unknown>;
+  if (typeof f.id !== 'string' || typeof f.name !== 'string' || !Array.isArray(f.words)) return null;
+  const words = (f.words as unknown[]).filter(
+    (w): w is FolderWord =>
+      typeof w === 'object' && w !== null && typeof (w as FolderWord).en === 'string',
+  );
+  const status = (f.status as Record<string, WordStatus> | undefined) ?? {};
+  const stats = f.stats as FolderStats | undefined;
+  return {
+    id: f.id,
+    name: f.name.slice(0, 80),
+    createdAt: typeof f.createdAt === 'number' ? f.createdAt : Date.now(),
+    words: words.slice(0, MAX_FOLDER_WORDS),
+    status: typeof status === 'object' && status !== null ? status : {},
+    stats:
+      stats && typeof stats.attempts === 'number'
+        ? stats
+        : { attempts: 0, correct: 0, total: 0 },
+  };
 }
 
-export function saveFolders(folders: Folder[]): void {
-  try {
-    localStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
-  } catch {
-    /* đầy bộ nhớ: bỏ qua */
-  }
+/** Tải toàn bộ thư mục của tài khoản đang đăng nhập (mới nhất trước). */
+export async function fetchFolders(): Promise<Folder[]> {
+  const res = await authFetch('/api/folders');
+  if (!res.ok) throw new Error(`folders API responded ${res.status}`);
+  const data = (await res.json()) as { folders?: unknown[] };
+  return (data.folders ?? [])
+    .map(normalizeFolder)
+    .filter((f): f is Folder => f !== null);
+}
+
+/** Lưu (tạo mới hoặc ghi đè) 1 thư mục lên server. */
+export async function putFolder(folder: Folder): Promise<void> {
+  const res = await authFetch(`/api/folders/${encodeURIComponent(folder.id)}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      name: folder.name,
+      words: folder.words,
+      status: folder.status,
+      stats: folder.stats,
+      createdAt: folder.createdAt,
+    }),
+  });
+  if (!res.ok) throw new Error(`save folder responded ${res.status}`);
+}
+
+/** Xóa thư mục trên server. */
+export async function deleteFolder(id: string): Promise<void> {
+  const res = await authFetch(`/api/folders/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`delete folder responded ${res.status}`);
 }
 
 export function toWord(w: FolderWord): Word {

@@ -4,7 +4,6 @@ import { useState } from 'react';
 import {
   fetchToeicReading,
   formatPassage,
-  getClientId,
   submitToeic,
   type ToeicDetail,
   type ToeicQuestion,
@@ -64,7 +63,6 @@ export default function ToeicPractice({ kind, count, part, tag = '', title, intr
     setSubmitting(true);
     try {
       const r = await submitToeic(answers, kind, `reading-p${part}`, {
-        client_id: getClientId(),
         duration_s: Math.max(0, Math.round((Date.now() - t0) / 1000)),
         expected_total: questions.length,
       });

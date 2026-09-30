@@ -2,12 +2,15 @@ import html
 import json
 import random
 import re
+import secrets
+import hashlib
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 
-from fastapi import FastAPI, HTTPException
+import bcrypt
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
@@ -15,6 +18,33 @@ from sqlalchemy import text
 from app.db import get_engine
 
 import os
+
+
+def _load_local_env() -> None:
+    """Nạp .env ở repo-root khi chạy tay (uvicorn trực tiếp).
+
+    Env thật (Render/dashboard, export tay) luôn thắng vì chỉ setdefault.
+    Không có file .env (prod) thì đây là no-op.
+    """
+    try:
+        here = os.path.abspath(__file__)
+        for _ in range(6):
+            here = os.path.dirname(here)
+            candidate = os.path.join(here, ".env")
+            if os.path.isfile(candidate):
+                with open(candidate, encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith("#") or "=" not in line:
+                            continue
+                        key, val = line.split("=", 1)
+                        os.environ.setdefault(key.strip(), val.strip().strip("'\""))
+                return
+    except Exception:
+        pass
+
+
+_load_local_env()
 
 app = FastAPI(title="English Learning API")
 
@@ -55,8 +85,277 @@ def health() -> dict:
         return {"status": "degraded", "database": "down", "error": str(exc)}
 
 
+# ---- User accounts: login gate for every service (health/root stay open) ----
+
+USERNAME_RE = re.compile(r"^[A-Za-z0-9_.-]{3,32}$")
+SESSION_DAYS = 7
+
+
+def _hash_pw(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("ascii")
+
+
+def _check_pw(password: str, hashed: str) -> bool:
+    try:
+        return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("ascii"))
+    except Exception:  # noqa: BLE001 - bad hash format means no match
+        return False
+
+
+def _issue_token(user_id: int) -> str:
+    token = secrets.token_urlsafe(32)
+    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    engine = get_engine()
+    with engine.begin() as conn:
+        conn.execute(
+            text("INSERT INTO user_sessions (token_hash, user_id) VALUES (:h, :u)"),
+            {"h": digest, "u": user_id},
+        )
+    return token
+
+
+def get_current_user(authorization: str = Header(default="")) -> dict:
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="login required")
+    digest = hashlib.sha256(authorization[7:].encode("utf-8")).hexdigest()
+    engine = get_engine()
+    with engine.connect() as conn:
+        row = conn.execute(
+            text(
+                "SELECT s.user_id AS uid, u.username AS username "
+                "FROM user_sessions s JOIN users u ON u.id = s.user_id "
+                "WHERE s.token_hash = :h AND s.created_at > NOW() - make_interval(0, 0, 0, :d)"
+            ),
+            {"h": digest, "d": SESSION_DAYS},
+        ).mappings().one_or_none()
+    if row is None:
+        raise HTTPException(status_code=401, detail="session expired")
+    return {"id": row["uid"], "username": row["username"], "token_hash": digest}
+
+
+class RegisterIn(BaseModel):
+    username: str = Field(min_length=3, max_length=32)
+    password: str = Field(min_length=4, max_length=128)
+    email: str = Field(min_length=5, max_length=120)
+
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+RESET_TTL_MIN = 15
+RESET_MAX_ATTEMPTS = 5
+FORGOT_COOLDOWN_S = 60
+
+
+def _send_reset_mail(to_email: str, code: str) -> bool:
+    """Gửi mã qua Gmail SMTP. Trả về False khi chưa cấu hình (dev): in mã ra log."""
+    host = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    port = int(os.getenv("SMTP_PORT", "587") or 587)
+    user = os.getenv("SMTP_USER", "")
+    password = os.getenv("SMTP_PASS", "").replace(" ", "")
+    if not user or not password:
+        print(f"[auth] SMTP chua cau hinh — ma reset cho {to_email}: {code}", flush=True)
+        return False
+    import smtplib
+    from email.message import EmailMessage
+
+    msg = EmailMessage()
+    msg["Subject"] = "EnglishFun — ma dat lai mat khau"
+    msg["From"] = os.getenv("SMTP_FROM", user)
+    msg["To"] = to_email
+    msg.set_content(
+        f"Ma dat lai mat khau EnglishFun cua ban la: {code}\n"
+        f"Ma co hieu luc {RESET_TTL_MIN} phut. Neu ban khong yeu cau, hay bo qua email nay."
+    )
+    attempts = 0
+    while True:
+        try:
+            with smtplib.SMTP(host, port, timeout=20) as s:
+                s.starttls()
+                s.login(user, password)
+                s.send_message(msg)
+            return True
+        except Exception as exc:  # noqa: BLE001 - gateway Gmail hay treo, thử lại 1 lần
+            attempts += 1
+            if attempts >= 2:
+                raise
+            print(f"[auth] gui mail lan {attempts} loi {type(exc).__name__} — thu lai", flush=True)
+            time.sleep(3)
+
+
+class LoginIn(BaseModel):
+    username: str = Field(min_length=1, max_length=32)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class ChangePwIn(BaseModel):
+    old_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=4, max_length=128)
+
+
+@app.post("/api/auth/register", status_code=201)
+def auth_register(body: RegisterIn) -> dict:
+    username = body.username.strip()
+    email = body.email.strip().lower()
+    if not USERNAME_RE.match(username):
+        raise HTTPException(status_code=400, detail="Tên tài khoản 3–32 ký tự: chữ, số, _, -, .")
+    if not EMAIL_RE.match(email):
+        raise HTTPException(status_code=400, detail="Email chưa đúng")
+    engine = get_engine()
+    with engine.begin() as conn:
+        exists = conn.execute(
+            text("SELECT id FROM users WHERE username = :u"), {"u": username}
+        ).mappings().one_or_none()
+        if exists is not None:
+            raise HTTPException(status_code=409, detail="Tên này đã có người dùng")
+        mail_used = conn.execute(
+            text("SELECT id FROM users WHERE email = :e"), {"e": email}
+        ).mappings().one_or_none()
+        if mail_used is not None:
+            raise HTTPException(status_code=409, detail="Email này đã được đăng ký")
+        user_id = conn.execute(
+            text("INSERT INTO users (username, password_hash, email) VALUES (:u, :h, :e) RETURNING id"),
+            {"u": username, "h": _hash_pw(body.password), "e": email},
+        ).scalar()
+    return {"token": _issue_token(int(user_id)), "username": username}
+
+
+@app.post("/api/auth/login")
+def auth_login(body: LoginIn) -> dict:
+    engine = get_engine()
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT id, username, password_hash FROM users WHERE username = :u"),
+            {"u": body.username.strip()},
+        ).mappings().one_or_none()
+    if row is None or not _check_pw(body.password, str(row["password_hash"])):
+        raise HTTPException(status_code=401, detail="Tài khoản hoặc mật khẩu không đúng. Vui lòng thử lại.")
+    return {"token": _issue_token(int(row["id"])), "username": str(row["username"])}
+
+
+@app.get("/api/auth/me")
+def auth_me(user: dict = Depends(get_current_user)) -> dict:
+    return {"username": user["username"]}
+
+
+@app.post("/api/auth/logout")
+def auth_logout(user: dict = Depends(get_current_user)) -> dict:
+    engine = get_engine()
+    with engine.begin() as conn:
+        conn.execute(
+            text("DELETE FROM user_sessions WHERE token_hash = :h"), {"h": user["token_hash"]}
+        )
+    return {"ok": True}
+
+
+@app.post("/api/auth/change-password")
+def auth_change_password(body: ChangePwIn, user: dict = Depends(get_current_user)) -> dict:
+    engine = get_engine()
+    with engine.begin() as conn:
+        row = conn.execute(
+            text("SELECT password_hash FROM users WHERE id = :u"), {"u": user["id"]}
+        ).mappings().one_or_none()
+        if row is None or not _check_pw(body.old_password, str(row["password_hash"])):
+            raise HTTPException(status_code=400, detail="Mật khẩu cũ không đúng")
+        conn.execute(
+            text("UPDATE users SET password_hash = :h WHERE id = :u"),
+            {"h": _hash_pw(body.new_password), "u": user["id"]},
+        )
+        # đá mọi phiên khác ra, giữ phiên đang dùng
+        conn.execute(
+            text("DELETE FROM user_sessions WHERE user_id = :u AND token_hash <> :h"),
+            {"u": user["id"], "h": user["token_hash"]},
+        )
+    return {"ok": True}
+
+
+class ForgotIn(BaseModel):
+    username: str = Field(min_length=1, max_length=32)
+
+
+class ResetIn(BaseModel):
+    username: str = Field(min_length=1, max_length=32)
+    code: str = Field(min_length=4, max_length=12)
+    new_password: str = Field(min_length=4, max_length=128)
+
+
+@app.post("/api/auth/forgot")
+def auth_forgot(body: ForgotIn) -> dict:
+    # Luôn trả ok:true để không lộ tài khoản nào tồn tại.
+    engine = get_engine()
+    with engine.begin() as conn:
+        row = conn.execute(
+            text("SELECT id, email FROM users WHERE username = :u"),
+            {"u": body.username.strip()},
+        ).mappings().one_or_none()
+        if row is not None and row["email"]:
+            recent = conn.execute(
+                text(
+                    "SELECT id FROM password_resets "
+                    "WHERE user_id = :u AND created_at > NOW() - make_interval(0, 0, 0, 0, 0, 0, :c) "
+                    "LIMIT 1"
+                ),
+                {"u": row["id"], "c": FORGOT_COOLDOWN_S},
+            ).first()
+            if recent is not None:
+                # Chống email bombing: mã trước còn mới thì giữ nguyên, vẫn trả ok.
+                return {"ok": True}
+            code = f"{secrets.randbelow(1_000_000):06d}"
+            conn.execute(
+                text("DELETE FROM password_resets WHERE user_id = :u"), {"u": row["id"]}
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO password_resets (user_id, code_hash, expires_at) "
+                    "VALUES (:u, :h, NOW() + make_interval(0, 0, 0, 0, 0, :m))"
+                ),
+                {"u": row["id"], "h": _hash_pw(code), "m": RESET_TTL_MIN},
+            )
+            try:
+                _send_reset_mail(str(row["email"]), code)
+            except Exception as exc:  # noqa: BLE001 - mail hỏng vẫn trả ok
+                print(f"[auth] gui mail that bai: {type(exc).__name__}", flush=True)
+    return {"ok": True}
+
+
+@app.post("/api/auth/reset")
+def auth_reset(body: ResetIn) -> dict:
+    engine = get_engine()
+    with engine.begin() as conn:
+        row = conn.execute(
+            text("SELECT id FROM users WHERE username = :u"),
+            {"u": body.username.strip()},
+        ).mappings().one_or_none()
+        if row is not None:
+            codes = conn.execute(
+                text(
+                    "SELECT id, code_hash, attempts FROM password_resets "
+                    "WHERE user_id = :u AND expires_at > NOW() ORDER BY id DESC"
+                ),
+                {"u": row["id"]},
+            ).mappings().all()
+            for c in codes:
+                if int(c["attempts"]) >= RESET_MAX_ATTEMPTS:
+                    continue
+                if _check_pw(body.code.strip(), str(c["code_hash"])):
+                    conn.execute(
+                        text("UPDATE users SET password_hash = :h WHERE id = :u"),
+                        {"h": _hash_pw(body.new_password), "u": row["id"]},
+                    )
+                    conn.execute(
+                        text("DELETE FROM user_sessions WHERE user_id = :u"), {"u": row["id"]}
+                    )
+                    conn.execute(
+                        text("DELETE FROM password_resets WHERE user_id = :u"), {"u": row["id"]}
+                    )
+                    return {"ok": True}
+                conn.execute(
+                    text("UPDATE password_resets SET attempts = attempts + 1 WHERE id = :i"),
+                    {"i": c["id"]},
+                )
+    raise HTTPException(status_code=400, detail="Mã sai hoặc hết hạn")
+
+
 @app.get("/api/words")
-def list_words(topic: str = "") -> dict:
+def list_words(topic: str = "", user: dict = Depends(get_current_user)) -> dict:
     engine = get_engine()
     with engine.connect() as conn:
         if topic.strip():
@@ -72,7 +371,7 @@ def list_words(topic: str = "") -> dict:
 
 
 @app.get("/api/words/search")
-def search_words(q: str = "", topic: str = "") -> dict:
+def search_words(q: str = "", topic: str = "", user: dict = Depends(get_current_user)) -> dict:
     keyword = f"%{q.strip()}%"
     engine = get_engine()
     with engine.connect() as conn:
@@ -255,7 +554,7 @@ def _pick_english_audio(items: list) -> str:
 
 
 @app.get("/api/words/audio")
-def word_audio(en: str = "") -> dict:
+def word_audio(en: str = "", user: dict = Depends(get_current_user)) -> dict:
     word = " ".join(en.strip().split())
     if not word or len(word) > 60 or not WORD_RE.match(word):
         return {"audio": None, "query": en.strip()[:60]}
@@ -276,7 +575,7 @@ def word_audio(en: str = "") -> dict:
 
 
 @app.get("/api/words/lookup")
-def lookup_word(en: str = "") -> dict:
+def lookup_word(en: str = "", user: dict = Depends(get_current_user)) -> dict:
     word = " ".join(en.strip().split())
     if not word or len(word) > 60:
         return {"source": "none", "words": [], "external": None, "query": en.strip()[:60]}
@@ -297,7 +596,7 @@ def lookup_word(en: str = "") -> dict:
 
 
 @app.get("/api/topics")
-def list_topics() -> dict:
+def list_topics(user: dict = Depends(get_current_user)) -> dict:
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
@@ -307,7 +606,7 @@ def list_topics() -> dict:
 
 
 @app.get("/api/quiz/random")
-def random_quiz(count: int = 10) -> dict:
+def random_quiz(count: int = 10, user: dict = Depends(get_current_user)) -> dict:
     count = max(1, min(count, 50))
     engine = get_engine()
     with engine.connect() as conn:
@@ -337,14 +636,16 @@ class ProgressIn(BaseModel):
 
 
 @app.get("/api/progress")
-def get_progress() -> dict:
+def get_progress(user: dict = Depends(get_current_user)) -> dict:
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
-            text("SELECT id, score, total, created_at FROM quiz_results ORDER BY id DESC LIMIT 50")
+            text("SELECT id, score, total, created_at FROM quiz_results WHERE user_id = :u ORDER BY id DESC LIMIT 50"),
+            {"u": user["id"]},
         ).mappings().all()
         agg = conn.execute(
-            text("SELECT COUNT(*) AS attempts, COALESCE(AVG(score * 1.0 / NULLIF(total, 0)), 0) AS avg_rate FROM quiz_results")
+            text("SELECT COUNT(*) AS attempts, COALESCE(AVG(score * 1.0 / NULLIF(total, 0)), 0) AS avg_rate FROM quiz_results WHERE user_id = :u"),
+            {"u": user["id"]},
         ).mappings().one()
     return {
         "history": [dict(r) for r in rows],
@@ -354,12 +655,12 @@ def get_progress() -> dict:
 
 
 @app.post("/api/progress", status_code=201)
-def save_progress(p: ProgressIn) -> dict:
+def save_progress(p: ProgressIn, user: dict = Depends(get_current_user)) -> dict:
     engine = get_engine()
     with engine.begin() as conn:
         row = conn.execute(
-            text("INSERT INTO quiz_results (score, total) VALUES (:s, :t) RETURNING id, score, total"),
-            {"s": p.score, "t": p.total},
+            text("INSERT INTO quiz_results (score, total, user_id) VALUES (:s, :t, :u) RETURNING id, score, total"),
+            {"s": p.score, "t": p.total, "u": user["id"]},
         ).mappings().one()
     return dict(row)
 
@@ -426,12 +727,12 @@ def _band_for_pct(pct: float) -> dict:
 
 
 @app.get("/api/toeic/levels")
-def toeic_levels() -> dict:
+def toeic_levels(user: dict = Depends(get_current_user)) -> dict:
     return {"levels": TOEIC_BANDS}
 
 
 @app.get("/api/toeic/reading")
-def toeic_reading(part: int = 5, count: int = 10, tag: str = "") -> dict:
+def toeic_reading(part: int = 5, count: int = 10, tag: str = "", user: dict = Depends(get_current_user)) -> dict:
     if part not in (5, 6, 7):
         raise HTTPException(status_code=400, detail="only parts 5-7 available in this phase")
     count = max(1, min(count, 100))
@@ -474,13 +775,12 @@ class ToeicSubmit(BaseModel):
     answers: list[ToeicAnswer] = Field(min_length=1, max_length=200)
     kind: str = Field(default="practice", pattern="^practice$")
     meta: str = Field(default="", max_length=60)
-    client_id: str = Field(default="", max_length=64)
     duration_s: int = Field(default=0, ge=0, le=7200)
     expected_total: int = Field(default=0, ge=0, le=200)
 
 
 @app.post("/api/toeic/submit")
-def toeic_submit(s: ToeicSubmit) -> dict:
+def toeic_submit(s: ToeicSubmit, user: dict = Depends(get_current_user)) -> dict:
     import json as _json
 
     ids = [a.id for a in s.answers]
@@ -528,25 +828,20 @@ def toeic_submit(s: ToeicSubmit) -> dict:
         band = _band_for_pct(pct)
         estimate = round((band["min"] + band["max"]) / 2 / 10) * 10
         conn.execute(
-            text("INSERT INTO toeic_attempts (score, total, kind, band, meta, errors, client_id, duration_s) VALUES (:s, :t, :k, :b, :m, :e, :c, :d)"),
-            {"s": score, "t": total, "k": s.kind, "b": band["level"], "m": s.meta, "e": _json.dumps(errors), "c": s.client_id, "d": s.duration_s},
+            text("INSERT INTO toeic_attempts (score, total, kind, band, meta, errors, user_id, duration_s) VALUES (:s, :t, :k, :b, :m, :e, :u, :d)"),
+            {"s": score, "t": total, "k": s.kind, "b": band["level"], "m": s.meta, "e": _json.dumps(errors), "u": user["id"], "d": s.duration_s},
         )
     return {"score": score, "total": total, "answered": answered, "band": band, "estimate": estimate, "details": details}
 
 
 @app.get("/api/toeic/attempts")
-def toeic_attempts(client_id: str = "") -> dict:
+def toeic_attempts(user: dict = Depends(get_current_user)) -> dict:
     engine = get_engine()
     with engine.connect() as conn:
-        if client_id.strip():
-            rows = conn.execute(
-                text("SELECT id, score, total, kind, band, meta, errors, client_id, duration_s, created_at FROM toeic_attempts WHERE client_id = :c ORDER BY id DESC LIMIT 50"),
-                {"c": client_id.strip()},
-            ).mappings().all()
-        else:
-            rows = conn.execute(
-                text("SELECT id, score, total, kind, band, meta, errors, client_id, duration_s, created_at FROM toeic_attempts ORDER BY id DESC LIMIT 50")
-            ).mappings().all()
+        rows = conn.execute(
+            text("SELECT id, score, total, kind, band, meta, errors, duration_s, created_at FROM toeic_attempts WHERE user_id = :u ORDER BY id DESC LIMIT 50"),
+            {"u": user["id"]},
+        ).mappings().all()
     history = []
     for r in rows:
         d = dict(r)
@@ -560,36 +855,153 @@ def toeic_attempts(client_id: str = "") -> dict:
 
 
 class ToeicProfile(BaseModel):
-    client_id: str = Field(min_length=8, max_length=64)
     display_name: str = Field(default="", max_length=40)
     target_score: int = Field(default=700, ge=10, le=990)
 
 
 @app.get("/api/toeic/profile")
-def toeic_profile_get(client_id: str = "") -> dict:
-    if not client_id.strip():
-        raise HTTPException(status_code=400, detail="client_id required")
+def toeic_profile_get(user: dict = Depends(get_current_user)) -> dict:
     engine = get_engine()
     with engine.connect() as conn:
         row = conn.execute(
-            text("SELECT client_id, display_name, target_score FROM user_toeic_profile WHERE client_id = :c"),
-            {"c": client_id.strip()},
+            text("SELECT display_name, target_score FROM user_toeic_profile WHERE user_id = :u"),
+            {"u": user["id"]},
         ).mappings().one_or_none()
     if row is None:
-        return {"client_id": client_id.strip(), "display_name": "", "target_score": 700}
-    return dict(row)
+        return {"username": user["username"], "display_name": "", "target_score": 700}
+    return {"username": user["username"], **dict(row)}
 
 
 @app.post("/api/toeic/profile")
-def toeic_profile_save(p: ToeicProfile) -> dict:
+def toeic_profile_save(p: ToeicProfile, user: dict = Depends(get_current_user)) -> dict:
     engine = get_engine()
     with engine.begin() as conn:
         conn.execute(
             text(
-                "INSERT INTO user_toeic_profile (client_id, display_name, target_score) "
-                "VALUES (:c, :n, :t) "
-                "ON CONFLICT (client_id) DO UPDATE SET display_name = :n, target_score = :t"
+                "INSERT INTO user_toeic_profile (user_id, display_name, target_score) "
+                "VALUES (:u, :n, :t) "
+                "ON CONFLICT (user_id) DO UPDATE SET display_name = :n, target_score = :t"
             ),
-            {"c": p.client_id, "n": p.display_name, "t": p.target_score},
+            {"u": user["id"], "n": p.display_name, "t": p.target_score},
         )
-    return {"client_id": p.client_id, "display_name": p.display_name, "target_score": p.target_score}
+    return {"username": user["username"], "display_name": p.display_name, "target_score": p.target_score}
+
+
+# ---- User folders (server-side, per account; replaces browser localStorage) ----
+
+FOLDER_KEY_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+FOLDER_STATUS = {"new", "learning", "known"}
+
+
+class FolderWordIn(BaseModel):
+    id: int = Field(ge=0, le=10**13)
+    en: str = Field(min_length=1, max_length=40)
+    vi: str = Field(default="", max_length=200)
+    ipa: str = Field(default="", max_length=100)
+    example: str = Field(default="", max_length=500)
+    audio: str = Field(default="", max_length=1000)
+
+
+class FolderIn(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    words: list[FolderWordIn] = Field(default_factory=list, max_length=500)
+    status: dict[str, str] = Field(default_factory=dict)
+    stats: dict[str, int] = Field(default_factory=dict)
+    createdAt: int = Field(default=0, ge=0, le=10**13)
+
+    @model_validator(mode="after")
+    def check_folder(self) -> "FolderIn":
+        if len(self.status) > 2000:
+            raise ValueError("too many status entries")
+        for k, v in self.status.items():
+            if len(k) > 40 or v not in FOLDER_STATUS:
+                raise ValueError("bad status entry")
+        for k, v in self.stats.items():
+            if k not in {"attempts", "correct", "total"} or v < 0 or v > 10**9:
+                raise ValueError("bad stats entry")
+        return self
+
+
+def _folder_doc(key: str, body: FolderIn, created_at: int) -> dict:
+    import time as _time
+    return {
+        "id": key,
+        "name": body.name,
+        "createdAt": created_at or int(_time.time() * 1000),
+        "words": [w.model_dump() for w in body.words],
+        "status": dict(body.status),
+        "stats": {
+            "attempts": body.stats.get("attempts", 0),
+            "correct": body.stats.get("correct", 0),
+            "total": body.stats.get("total", 0),
+        },
+    }
+
+
+@app.get("/api/folders")
+def folders_list(user: dict = Depends(get_current_user)) -> dict:
+    import json as _json
+    engine = get_engine()
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text("SELECT folder_key, data FROM user_folders WHERE user_id = :u ORDER BY updated_at DESC"),
+            {"u": user["id"]},
+        ).mappings().all()
+    out = []
+    for r in rows:
+        data = r["data"]
+        if isinstance(data, str):
+            try:
+                data = _json.loads(data)
+            except ValueError:
+                continue
+        if isinstance(data, dict):
+            out.append({**data, "id": r["folder_key"]})
+    return {"folders": out}
+
+
+@app.put("/api/folders/{key}")
+def folder_put(key: str, body: FolderIn, user: dict = Depends(get_current_user)) -> dict:
+    import json as _json
+    import time as _time
+    if not FOLDER_KEY_RE.match(key):
+        raise HTTPException(status_code=400, detail="bad folder key")
+    engine = get_engine()
+    with engine.begin() as conn:
+        old = conn.execute(
+            text("SELECT data FROM user_folders WHERE user_id = :u AND folder_key = :k"),
+            {"u": user["id"], "k": key},
+        ).mappings().one_or_none()
+        created_at = body.createdAt
+        if not created_at and old is not None:
+            prev = old["data"]
+            if isinstance(prev, str):
+                try:
+                    prev = _json.loads(prev)
+                except ValueError:
+                    prev = {}
+            if isinstance(prev, dict) and isinstance(prev.get("createdAt"), int):
+                created_at = prev["createdAt"]
+        doc = _folder_doc(key, body, created_at or int(_time.time() * 1000))
+        conn.execute(
+            text(
+                "INSERT INTO user_folders (user_id, folder_key, data, updated_at) "
+                "VALUES (:u, :k, :d, NOW()) "
+                "ON CONFLICT (user_id, folder_key) DO UPDATE SET data = :d, updated_at = NOW()"
+            ),
+            {"u": user["id"], "k": key, "d": _json.dumps(doc, ensure_ascii=False)},
+        )
+    return {"ok": True}
+
+
+@app.delete("/api/folders/{key}")
+def folder_delete(key: str, user: dict = Depends(get_current_user)) -> dict:
+    if not FOLDER_KEY_RE.match(key):
+        raise HTTPException(status_code=400, detail="bad folder key")
+    engine = get_engine()
+    with engine.begin() as conn:
+        conn.execute(
+            text("DELETE FROM user_folders WHERE user_id = :u AND folder_key = :k"),
+            {"u": user["id"], "k": key},
+        )
+    return {"ok": True}

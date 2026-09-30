@@ -4,9 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import {
   buildFolderQuiz,
   enrichMissing,
+  fetchFolders,
   knownCount,
-  loadFolders,
-  saveFolders,
+  putFolder,
   toWord,
   type Folder,
 } from '../../../lib/folders';
@@ -30,15 +30,21 @@ export default function FolderDetail({ params }: { params: { id: string } }) {
   const [showAppend, setShowAppend] = useState(false);
 
   useEffect(() => {
-    const f = loadFolders().find((x) => x.id === id) ?? null;
-    setFolder(f);
-    setMissing(!f);
+    fetchFolders()
+      .then((all) => {
+        const f = all.find((x) => x.id === id) ?? null;
+        setFolder(f);
+        setMissing(!f);
+      })
+      .catch(() => setMissing(true));
   }, [id]);
 
   function persist(next: Folder) {
+    const prev = folder;
     setFolder(next);
-    const all = loadFolders().map((x) => (x.id === next.id ? next : x));
-    saveFolders(all);
+    putFolder(next).catch(() => {
+      if (prev) setFolder(prev);
+    });
   }
 
   // làm giàu lặng lẽ: điền nghĩa/audio còn thiếu khi mở thư mục
@@ -56,7 +62,7 @@ export default function FolderDetail({ params }: { params: { id: string } }) {
           words: current.words.map((w) => (w.en.toLowerCase() === key ? { ...w, ...patch } : w)),
         };
         setFolder(current);
-        saveFolders(loadFolders().map((x) => (x.id === current.id ? current : x)));
+        putFolder(current).catch(() => {});
       },
       signal,
     );
