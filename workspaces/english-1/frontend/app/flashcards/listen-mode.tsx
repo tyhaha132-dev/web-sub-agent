@@ -79,8 +79,8 @@ export function ListenMode({ words }: { words: Word[] }) {
           <input ref={inputRef} value={value} onChange={(e) => setValue(e.target.value)} onKeyDown={handleKey} placeholder="Nghe được từ gì? Gõ vào..." autoFocus />
           <button className="btn btn-primary" type="submit">OK</button>
         </form>
-        {verdict === 'right' && <p>✅ Đúng rồi!</p>}
-        {verdict === 'wrong' && <p>❌ Sai — đáp án: <b>{card.en}</b> ({card.vi})</p>}
+        {verdict === 'right' && <p>✅ Đúng rồi! <b>{card.en}</b>{card.ipa ? ` ${card.ipa}` : ''} ({card.vi})</p>}
+        {verdict === 'wrong' && <p>❌ Sai — đáp án: <b>{card.en}</b>{card.ipa ? ` ${card.ipa}` : ''} ({card.vi})</p>}
         {verdict !== 'idle' && <button className="btn btn-ghost" onClick={next}>Tiếp →</button>}
       </div>
     </div>
