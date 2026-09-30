@@ -155,7 +155,7 @@ def _send_reset_mail_bg(to_email: str, code: str) -> None:
         _send_reset_mail(to_email, code)
         print(f"[auth] da gui ma reset toi {to_email}", flush=True)
     except Exception as exc:  # noqa: BLE001 - mail hỏng vẫn giữ mã trong DB cho lần thử sau
-        print(f"[auth] gui mail that bai: {type(exc).__name__}", flush=True)
+        print(f"[auth] gui mail that bai: {type(exc).__name__}: {exc}", flush=True)
 
 
 def _send_reset_mail(to_email: str, code: str) -> bool:
@@ -179,18 +179,25 @@ def _send_reset_mail(to_email: str, code: str) -> bool:
         f"Ma co hieu luc {RESET_TTL_MIN} phut. Neu ban khong yeu cau, hay bo qua email nay."
     )
     attempts = 0
+    use_ssl = port == 465
     while True:
         try:
-            with smtplib.SMTP(host, port, timeout=20) as s:
-                s.starttls()
-                s.login(user, password)
-                s.send_message(msg)
+            if use_ssl:
+                # Cong 465 (SMTPS): dung khi mang chan STARTTLS/587.
+                with smtplib.SMTP_SSL(host, port, timeout=20) as s:
+                    s.login(user, password)
+                    s.send_message(msg)
+            else:
+                with smtplib.SMTP(host, port, timeout=20) as s:
+                    s.starttls()
+                    s.login(user, password)
+                    s.send_message(msg)
             return True
         except Exception as exc:  # noqa: BLE001 - gateway Gmail hay treo, thử lại 1 lần
             attempts += 1
             if attempts >= 2:
                 raise
-            print(f"[auth] gui mail lan {attempts} loi {type(exc).__name__} — thu lai", flush=True)
+            print(f"[auth] gui mail lan {attempts} loi {type(exc).__name__}: {exc} — thu lai", flush=True)
             time.sleep(3)
 
 
