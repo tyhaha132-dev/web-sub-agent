@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { Word } from '../../lib/api';
+import { saveProgress, studySeconds, type Word } from '../../lib/api';
 
 const rowStyle = { marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap' } as const;
 
@@ -19,6 +19,8 @@ export function WriteMode({ words }: { words: Word[] }) {
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const startRef = useRef(Date.now());
+  const savedRef = useRef(false);
   const total = order.length;
   const card = order[index % order.length] as Word;
 
@@ -26,9 +28,19 @@ export function WriteMode({ words }: { words: Word[] }) {
     const arr = [...words].sort(() => Math.random() - 0.5);
     setOrder(arr.length > 0 ? arr : words);
     setIndex(0); setValue(''); setVerdict('idle'); setScore(0); setDone(0);
+    startRef.current = Date.now();
+    savedRef.current = false;
   }
 
   useEffect(() => { restart(); }, [words.length]);
+
+  // Xong 1 bo: ghi diem + phut hoc vao tien do (1 lan).
+  useEffect(() => {
+    if (done >= total && total > 0 && !savedRef.current) {
+      savedRef.current = true;
+      saveProgress(score, total, 'write', studySeconds(startRef.current)).catch(() => {});
+    }
+  }, [done, total, score]);
 
   useEffect(() => {
     inputRef.current?.focus();

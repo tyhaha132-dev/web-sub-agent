@@ -740,11 +740,15 @@ def random_quiz(count: int = 10, user: dict = Depends(get_current_user)) -> dict
 class ProgressIn(BaseModel):
     score: int = Field(ge=0, le=50)
     total: int = Field(ge=1, le=50)
+    kind: str = Field(default="quiz", max_length=16)
+    duration_sec: int = Field(default=0, ge=0, le=10800)
 
     @model_validator(mode="after")
     def check_score(self) -> "ProgressIn":
         if self.score > self.total:
             raise ValueError("score cannot exceed total")
+        if self.kind not in ("quiz", "write", "listen", "blast"):
+            raise ValueError("unknown kind")
         return self
 
 
@@ -753,17 +757,38 @@ def get_progress(user: dict = Depends(get_current_user)) -> dict:
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
-            text("SELECT id, score, total, created_at FROM quiz_results WHERE user_id = :u ORDER BY id DESC LIMIT 50"),
+            text(
+                "SELECT id, score, total, kind, duration_sec, created_at FROM quiz_results "
+                "WHERE user_id = :u ORDER BY id DESC LIMIT 50"
+            ),
             {"u": user["id"]},
         ).mappings().all()
         agg = conn.execute(
-            text("SELECT COUNT(*) AS attempts, COALESCE(AVG(score * 1.0 / NULLIF(total, 0)), 0) AS avg_rate FROM quiz_results WHERE user_id = :u"),
+            text("SELECT COUNT(*) AS attempts, COALESCE(AVG(score * 1.0 / NULLIF(total, 0)), 0) AS avg_rate, COALESCE(SUM(duration_sec), 0) AS seconds FROM quiz_results WHERE user_id = :u"),
             {"u": user["id"]},
         ).mappings().one()
+        daily = conn.execute(
+            text(
+                "SELECT to_char(created_at, 'YYYY-MM-DD') AS day, COUNT(*) AS attempts, "
+                "COALESCE(SUM(duration_sec), 0) AS seconds FROM quiz_results "
+                "WHERE user_id = :u AND created_at > NOW() - make_interval(0, 0, 0, 14) "
+                "GROUP BY 1 ORDER BY 1 DESC"
+            ),
+            {"u": user["id"]},
+        ).mappings().all()
     return {
         "history": [dict(r) for r in rows],
         "attempts": agg["attempts"],
         "avg_rate": float(agg["avg_rate"] or 0),
+        "total_minutes": round(int(agg["seconds"] or 0) / 60, 1),
+        "daily": [
+            {
+                "day": d["day"],
+                "attempts": int(d["attempts"]),
+                "minutes": round(int(d["seconds"] or 0) / 60, 1),
+            }
+            for d in daily
+        ],
     }
 
 
@@ -772,10 +797,45 @@ def save_progress(p: ProgressIn, user: dict = Depends(get_current_user)) -> dict
     engine = get_engine()
     with engine.begin() as conn:
         row = conn.execute(
-            text("INSERT INTO quiz_results (score, total, user_id) VALUES (:s, :t, :u) RETURNING id, score, total"),
-            {"s": p.score, "t": p.total, "u": user["id"]},
+            text(
+                "INSERT INTO quiz_results (score, total, user_id, kind, duration_sec) "
+                "VALUES (:s, :t, :u, :k, :d) RETURNING id, score, total"
+            ),
+            {"s": p.score, "t": p.total, "u": user["id"], "k": p.kind, "d": p.duration_sec},
         ).mappings().one()
     return dict(row)
+
+
+@app.get("/api/leaderboard")
+def leaderboard(user: dict = Depends(get_current_user)) -> dict:
+    """Bang xep hang cong khai: username + phut hoc + % dung (khong lo email).
+    Diem xep = phut hoc * ti le dung: vua cham vua chac moi len top."""
+    engine = get_engine()
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT u.username AS username, COUNT(*) AS attempts, "
+                "COALESCE(SUM(r.duration_sec), 0) AS seconds, "
+                "COALESCE(AVG(r.score * 1.0 / NULLIF(r.total, 0)), 0) AS avg_rate "
+                "FROM quiz_results r JOIN users u ON u.id = r.user_id "
+                "GROUP BY u.username ORDER BY COUNT(*) DESC LIMIT 200"
+            )
+        ).mappings().all()
+    board = []
+    for r in rows:
+        minutes = round(int(r["seconds"] or 0) / 60, 1)
+        rate = float(r["avg_rate"] or 0)
+        board.append(
+            {
+                "username": str(r["username"]),
+                "attempts": int(r["attempts"]),
+                "minutes": minutes,
+                "accuracy": round(rate * 100, 1),
+                "score": round(minutes * rate, 2),
+            }
+        )
+    board.sort(key=lambda x: x["score"], reverse=True)
+    return {"board": board[:100]}
 
 
 # ---- TOEIC Phase 1.1/1.2 slice: score bands + Part 5 bank (no accounts, anonymous like quiz) ----

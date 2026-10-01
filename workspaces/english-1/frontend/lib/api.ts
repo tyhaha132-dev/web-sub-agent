@@ -203,11 +203,22 @@ export async function fetchQuiz(count = 10): Promise<QuizQuestion[]> {
   return data.questions ?? [];
 }
 
-export async function saveProgress(score: number, total: number): Promise<void> {
+/** Luu 1 luot hoc: diem + loai (quiz/write/listen/blast) + so giay da hoc. */
+export async function saveProgress(
+  score: number,
+  total: number,
+  kind = 'quiz',
+  durationSec = 0,
+): Promise<void> {
   await authFetch('/api/progress', {
     method: 'POST',
-    body: JSON.stringify({ score, total }),
+    body: JSON.stringify({ score, total, kind, duration_sec: Math.max(0, Math.min(10800, Math.round(durationSec))) }),
   });
+}
+
+/** Gio hoc tu luc bat dau (ms) -> so giay, chan toi da 3 tieng. */
+export function studySeconds(sinceMs: number): number {
+  return Math.max(0, Math.min(10800, Math.round((Date.now() - sinceMs) / 1000)));
 }
 
 export function speak(text: string): void {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { saveProgress, type Word } from '../../lib/api';
+import { saveProgress, studySeconds, type Word } from '../../lib/api';
 
 type Dir = 'vi-en' | 'en-vi';
 type Diff = 'easy' | 'normal' | 'hard';
@@ -209,6 +209,7 @@ export default function BlastGame({
   });
   const snapRef = useRef(snap);
   snapRef.current = snap;
+  const startRef = useRef(0);
   const wordsRef = useRef<Word[]>(words);
   wordsRef.current = words;
   const cfgRef = useRef({ dir, diff, speedSetting });
@@ -252,7 +253,7 @@ export default function BlastGame({
       savedRef.current = true;
       setPhase(snap.phase);
       if (saveServer) {
-        saveProgress(snap.blasted, WORDS_PER_GAME).catch(() => {});
+        saveProgress(snap.blasted, WORDS_PER_GAME, 'blast', studySeconds(startRef.current)).catch(() => {});
       } else {
         onDone?.(snap.blasted, WORDS_PER_GAME);
       }
@@ -286,6 +287,7 @@ export default function BlastGame({
       setSnap(freshSnap(performance.now()));
       prevRef.current = { blasted: 0, lives: MAX_LIVES };
       setStreak(0);
+      startRef.current = Date.now();
       setPhase('playing');
       return;
     }

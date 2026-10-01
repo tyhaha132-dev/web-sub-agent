@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { fetchQuiz, saveProgress, type QuizQuestion } from '../../lib/api';
+import { useRef, useState } from 'react';
+import { fetchQuiz, saveProgress, studySeconds, type QuizQuestion } from '../../lib/api';
 
 export default function Quiz() {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -11,12 +11,14 @@ export default function Quiz() {
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const startRef = useRef(0);
 
   async function start() {
     setLoading(true); setError('');
     try {
       const q = await fetchQuiz(10);
       setQuestions(q); setCurrent(0); setScore(0); setDone(false); setPicked(null);
+      startRef.current = Date.now();
     } catch {
       setError('😢 Không tải được đề (backend chưa chạy?). Thử lại nhé!');
     } finally {
@@ -33,7 +35,7 @@ export default function Quiz() {
   async function next() {
     if (current + 1 >= questions.length) {
       setDone(true);
-      try { await saveProgress(score, questions.length); } catch { /* backend chưa chạy */ }
+      try { await saveProgress(score, questions.length, 'quiz', studySeconds(startRef.current)); } catch { /* backend chưa chạy */ }
       return;
     }
     setCurrent((c) => c + 1);

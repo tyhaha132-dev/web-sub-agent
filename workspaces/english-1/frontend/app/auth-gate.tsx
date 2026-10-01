@@ -12,6 +12,7 @@ const links = [
   ['Quiz', '/quiz'],
   ['TOEIC', '/toeic'],
   ['Tiến độ', '/progress'],
+  ['Xếp hạng', '/leaderboard'],
   ['Thư mục', '/folders'],
 ] as const;
 
