@@ -44,7 +44,8 @@ export default function Progress() {
         <div className="skill-card sk-purple"><h3>{level}</h3><p>cấp độ của bạn</p></div>
       </div>
       <div className="panel">
-        <h3>🗓️ Số phút học mỗi ngày (14 ngày gần nhất)</h3>
+        <h3>🗓️ Số phút hoạt động mỗi ngày (14 ngày gần nhất)</h3>
+        <p style={{ color: 'var(--muted)', fontSize: 13 }}>Mở web và thao tác là được tính — mọi trang (lật thẻ, quiz, TOEIC, từ điển...).</p>
         {daily.length === 0 && <p>Chưa có dữ liệu — <a href="/quiz">làm quiz</a> hoặc <a href="/flashcards">luyện flashcards</a> nhé! 🚀</p>}
         {daily.map((d) => (
           <div key={d.day} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>

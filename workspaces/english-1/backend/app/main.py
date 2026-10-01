@@ -764,27 +764,42 @@ def get_progress(user: dict = Depends(get_current_user)) -> dict:
             {"u": user["id"]},
         ).mappings().all()
         agg = conn.execute(
-            text("SELECT COUNT(*) AS attempts, COALESCE(AVG(score * 1.0 / NULLIF(total, 0)), 0) AS avg_rate, COALESCE(SUM(duration_sec), 0) AS seconds FROM quiz_results WHERE user_id = :u"),
+            text("SELECT COUNT(*) AS attempts, COALESCE(AVG(score * 1.0 / NULLIF(total, 0)), 0) AS avg_rate FROM quiz_results WHERE user_id = :u"),
             {"u": user["id"]},
         ).mappings().one()
+        # Phut hoc = thoi gian hoat dong that tren web (moi trang deu dem, ke ca
+        # lat the/TOEIC/tu dien khong nop diem). Bang activity la nguon duy nhat.
         daily = conn.execute(
             text(
-                "SELECT to_char(created_at, 'YYYY-MM-DD') AS day, COUNT(*) AS attempts, "
-                "COALESCE(SUM(duration_sec), 0) AS seconds FROM quiz_results "
-                "WHERE user_id = :u AND created_at > NOW() - make_interval(0, 0, 0, 14) "
-                "GROUP BY 1 ORDER BY 1 DESC"
+                "SELECT to_char(day, 'YYYY-MM-DD') AS day, seconds FROM study_activity "
+                "WHERE user_id = :u AND day > CURRENT_DATE - 14 ORDER BY day DESC"
             ),
             {"u": user["id"]},
         ).mappings().all()
+        total_sec = conn.execute(
+            text("SELECT COALESCE(SUM(seconds), 0) FROM study_activity WHERE user_id = :u"),
+            {"u": user["id"]},
+        ).scalar()
+        att_by_day = {
+            r["day"]: int(r["n"])
+            for r in conn.execute(
+                text(
+                    "SELECT to_char(created_at, 'YYYY-MM-DD') AS day, COUNT(*) AS n FROM quiz_results "
+                    "WHERE user_id = :u AND created_at > NOW() - make_interval(0, 0, 0, 14) "
+                    "GROUP BY 1"
+                ),
+                {"u": user["id"]},
+            ).mappings().all()
+        }
     return {
         "history": [dict(r) for r in rows],
         "attempts": agg["attempts"],
         "avg_rate": float(agg["avg_rate"] or 0),
-        "total_minutes": round(int(agg["seconds"] or 0) / 60, 1),
+        "total_minutes": round(int(total_sec or 0) / 60, 1),
         "daily": [
             {
                 "day": d["day"],
-                "attempts": int(d["attempts"]),
+                "attempts": att_by_day.get(d["day"], 0),
                 "minutes": round(int(d["seconds"] or 0) / 60, 1),
             }
             for d in daily
@@ -806,19 +821,52 @@ def save_progress(p: ProgressIn, user: dict = Depends(get_current_user)) -> dict
     return dict(row)
 
 
+class ActivityIn(BaseModel):
+    seconds: int = Field(ge=1, le=120)
+
+
+@app.post("/api/activity")
+def report_activity(body: ActivityIn, user: dict = Depends(get_current_user)) -> dict:
+    """Nhan heartbeat (60s/lan khi tab dang mo + co thao tac): cong don giay
+    hoat dong vao ngay hom nay, tran 16 tieng/ngay chong so lieu ao."""
+    engine = get_engine()
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO study_activity (user_id, day, seconds, updated_at) "
+                "VALUES (:u, CURRENT_DATE, :s, NOW()) "
+                "ON CONFLICT (user_id, day) DO UPDATE SET "
+                "seconds = LEAST(57600, study_activity.seconds + :s), updated_at = NOW()"
+            ),
+            {"u": user["id"], "s": body.seconds},
+        )
+        today = conn.execute(
+            text("SELECT seconds FROM study_activity WHERE user_id = :u AND day = CURRENT_DATE"),
+            {"u": user["id"]},
+        ).scalar()
+    return {"ok": True, "minutes_today": round(int(today or 0) / 60, 1)}
+
+
 @app.get("/api/leaderboard")
 def leaderboard(user: dict = Depends(get_current_user)) -> dict:
-    """Bang xep hang cong khai: username + phut hoc + % dung (khong lo email).
-    Diem xep = phut hoc * ti le dung: vua cham vua chac moi len top."""
+    """Bang xep hang cong khai: username + phut hoat dong + % dung (khong lo email).
+    Phut = thoi gian hoat dong that tren web; diem xep = phut * ti le dung."""
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
             text(
-                "SELECT u.username AS username, COUNT(*) AS attempts, "
-                "COALESCE(SUM(r.duration_sec), 0) AS seconds, "
-                "COALESCE(AVG(r.score * 1.0 / NULLIF(r.total, 0)), 0) AS avg_rate "
-                "FROM quiz_results r JOIN users u ON u.id = r.user_id "
-                "GROUP BY u.username ORDER BY COUNT(*) DESC LIMIT 200"
+                "SELECT u.username AS username, "
+                "COALESCE(a.seconds, 0) AS seconds, "
+                "COALESCE(q.attempts, 0) AS attempts, "
+                "COALESCE(q.avg_rate, 0) AS avg_rate "
+                "FROM users u "
+                "LEFT JOIN (SELECT user_id, SUM(seconds) AS seconds FROM study_activity GROUP BY user_id) a "
+                "ON a.user_id = u.id "
+                "LEFT JOIN (SELECT user_id, COUNT(*) AS attempts, "
+                "AVG(score * 1.0 / NULLIF(total, 0)) AS avg_rate FROM quiz_results GROUP BY user_id) q "
+                "ON q.user_id = u.id "
+                "WHERE COALESCE(a.seconds, 0) > 0 OR COALESCE(q.attempts, 0) > 0 "
+                "ORDER BY COALESCE(q.attempts, 0) DESC LIMIT 200"
             )
         ).mappings().all()
     board = []

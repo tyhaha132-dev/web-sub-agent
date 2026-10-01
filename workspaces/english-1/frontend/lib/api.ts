@@ -221,6 +221,42 @@ export function studySeconds(sinceMs: number): number {
   return Math.max(0, Math.min(10800, Math.round((Date.now() - sinceMs) / 1000)));
 }
 
+/** Gui 1 heartbeat len server (khong nem loi de khong lam phien UI). */
+export async function reportActivity(seconds: number): Promise<void> {
+  try {
+    await authFetch('/api/activity', { method: 'POST', body: JSON.stringify({ seconds }) });
+  } catch {
+    /* offline/hết phiên: nhịp sau gửi tiếp */
+  }
+}
+
+let activityTimer: ReturnType<typeof setInterval> | null = null;
+
+/** Dem phut hoat dong that: moi 60s, chi dem khi tab dang mo + co thao tac
+ *  trong 5 phut gan nhat (mo treo tab khong thao tac thi khong dem).
+ *  Dat 1 lan sau dang nhap (AuthGate); moi trang deu duoc dem. */
+export function startActivityTracker(): void {
+  if (activityTimer !== null) return;
+  let lastActive = Date.now();
+  try {
+    const mark = () => { lastActive = Date.now(); };
+    for (const ev of ['mousemove', 'keydown', 'click', 'touchstart', 'scroll']) {
+      window.addEventListener(ev, mark, { passive: true });
+    }
+  } catch {
+    return;
+  }
+  activityTimer = setInterval(() => {
+    try {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastActive > 5 * 60 * 1000) return;
+      void reportActivity(60);
+    } catch {
+      /* bo qua */
+    }
+  }, 60000);
+}
+
 export function speak(text: string): void {
   try {
     const synth = window.speechSynthesis;

@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import ThemeToggle from './theme-toggle';
 import LoginForm from './login-form';
 import { fetchMe, getToken, logout } from '../lib/auth';
+import { startActivityTracker } from '../lib/api';
 
 const links = [
   ['Trang chủ', '/'],
@@ -27,7 +28,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       return;
     }
     fetchMe()
-      .then((name) => setUser(name))
+      .then((name) => { setUser(name); startActivityTracker(); })
       .catch(() => setUser(null))
       .finally(() => setChecking(false));
     const onExpired = () => setUser(null);
@@ -53,7 +54,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   if (!user) {
     return (
       <div className="page">
-        <LoginForm onAuth={(name) => setUser(name)} />
+        <LoginForm onAuth={(name) => { setUser(name); startActivityTracker(); }} />
       </div>
     );
   }
