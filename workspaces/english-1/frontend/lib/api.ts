@@ -55,7 +55,10 @@ export const SAMPLE_WORDS: Word[] = [
 
 export async function fetchWords(topic = ''): Promise<Word[] | null> {
   try {
-    const url = topic ? `/api/words?topic=${encodeURIComponent(topic)}` : '/api/words';
+    // Lay toi da 500 tu/req (backend gioi han 500): flashcards/toeic-vocab can full bo.
+    const url = topic
+      ? `/api/words?topic=${encodeURIComponent(topic)}&limit=500`
+      : '/api/words?limit=500';
     const res = await authFetch(url);
     if (!res.ok) return null;
     const data = (await res.json()) as { words?: Word[] };

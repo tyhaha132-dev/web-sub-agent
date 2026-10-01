@@ -81,8 +81,9 @@ def health() -> dict:
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
         return {"status": "ok", "database": "up"}
-    except Exception as exc:  # noqa: BLE001 - surface connectivity cause
-        return {"status": "degraded", "database": "down", "error": str(exc)}
+    except Exception as exc:  # noqa: BLE001 - chi tiet loi chi ghi log server, khong tra cho client
+        print(f"[health] db down: {type(exc).__name__}", flush=True)
+        return {"status": "degraded", "database": "down"}
 
 
 # ---- User accounts: login gate for every service (health/root stay open) ----
@@ -100,6 +101,11 @@ def _check_pw(password: str, hashed: str) -> bool:
         return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("ascii"))
     except Exception:  # noqa: BLE001 - bad hash format means no match
         return False
+
+
+# Hash gia tinh 1 lan luc import: login user khong ton tai van chay bcrypt
+# de thoi gian phan hoi giong het user co ton tai (chong doan tai khoan).
+_DUMMY_HASH = bcrypt.hashpw(b"englishfun-dummy-password", bcrypt.gensalt()).decode("ascii")
 
 
 def _issue_token(user_id: int) -> str:
@@ -146,7 +152,10 @@ FORGOT_COOLDOWN_S = 60
 
 
 def _smtp_configured() -> bool:
-    return bool(os.getenv("SENDGRID_API_KEY", "") or (os.getenv("SMTP_USER", "") and os.getenv("SMTP_PASS", "")))
+    # Duong SendGrid cung can dia chi gui (SMTP_USER = Single Sender da verify).
+    if os.getenv("SENDGRID_API_KEY", ""):
+        return bool(os.getenv("SMTP_USER", ""))
+    return bool(os.getenv("SMTP_USER", "") and os.getenv("SMTP_PASS", ""))
 
 
 def _send_reset_mail_bg(to_email: str, code: str) -> None:
@@ -214,6 +223,8 @@ def _send_via_sendgrid(api_key: str, to_email: str, code: str) -> None:
     import urllib.request
 
     sender = os.getenv("SMTP_USER", "")
+    if not EMAIL_RE.match(sender):
+        raise ValueError("thieu SMTP_USER (dia chi gui SendGrid Single Sender)")
     payload = json.dumps(
         {
             "personalizations": [{"to": [{"email": to_email}]}],
@@ -297,7 +308,12 @@ def auth_login(body: LoginIn) -> dict:
             text("SELECT id, username, password_hash FROM users WHERE username = :u"),
             {"u": body.username.strip()},
         ).mappings().one_or_none()
-    if row is None or not _check_pw(body.password, str(row["password_hash"])):
+    if row is None:
+        # Chay bcrypt voi hash gia de ke tan cong khong phan biet duoc
+        # tai khoan co ton tai hay khong qua thoi gian phan hoi.
+        _check_pw(body.password, _DUMMY_HASH)
+        raise HTTPException(status_code=401, detail="Tài khoản hoặc mật khẩu không đúng. Vui lòng thử lại.")
+    if not _check_pw(body.password, str(row["password_hash"])):
         raise HTTPException(status_code=401, detail="Tài khoản hoặc mật khẩu không đúng. Vui lòng thử lại.")
     return {"token": _issue_token(int(row["id"])), "username": str(row["username"])}
 
@@ -430,20 +446,41 @@ def auth_reset(body: ResetIn) -> dict:
     raise HTTPException(status_code=400, detail="Mã sai hoặc hết hạn")
 
 
+WORDS_DEFAULT_LIMIT = 100
+WORDS_MAX_LIMIT = 500
+
+
 @app.get("/api/words")
-def list_words(topic: str = "", user: dict = Depends(get_current_user)) -> dict:
+def list_words(
+    topic: str = "",
+    limit: int = WORDS_DEFAULT_LIMIT,
+    offset: int = 0,
+    user: dict = Depends(get_current_user),
+) -> dict:
+    # Gioi han phan hoi (chong full-dump): mac dinh 100, toi da 500.
+    limit = max(1, min(limit, WORDS_MAX_LIMIT))
+    offset = max(0, offset)
     engine = get_engine()
     with engine.connect() as conn:
         if topic.strip():
-            rows = conn.execute(
-                text("SELECT id, en, vi, ipa, example, topic FROM words WHERE topic = :t ORDER BY id"),
+            total = conn.execute(
+                text("SELECT COUNT(*) FROM words WHERE topic = :t"),
                 {"t": topic.strip()},
+            ).scalar()
+            rows = conn.execute(
+                text(
+                    "SELECT id, en, vi, ipa, example, topic FROM words "
+                    "WHERE topic = :t ORDER BY id LIMIT :l OFFSET :o"
+                ),
+                {"t": topic.strip(), "l": limit, "o": offset},
             ).mappings().all()
         else:
+            total = conn.execute(text("SELECT COUNT(*) FROM words")).scalar()
             rows = conn.execute(
-                text("SELECT id, en, vi, ipa, example, topic FROM words ORDER BY id")
+                text("SELECT id, en, vi, ipa, example, topic FROM words ORDER BY id LIMIT :l OFFSET :o"),
+                {"l": limit, "o": offset},
             ).mappings().all()
-    return {"words": [dict(r) for r in rows]}
+    return {"words": [dict(r) for r in rows], "total": int(total or 0)}
 
 
 @app.get("/api/words/search")

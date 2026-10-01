@@ -18,9 +18,12 @@ export default function Home() {
   const [total, setTotal] = useState('50+');
   useEffect(() => {
     wakeBackend();
-    authFetch('/api/words')
+    authFetch('/api/words?limit=1')
       .then((r) => r.json())
-      .then((d: { words?: unknown[] }) => { if (d.words) setTotal(String(d.words.length)); })
+      .then((d: { words?: unknown[]; total?: number }) => {
+        if (typeof d.total === 'number') setTotal(String(d.total));
+        else if (d.words) setTotal(String(d.words.length));
+      })
       .catch(() => {});
   }, []);
   return (
