@@ -146,7 +146,7 @@ FORGOT_COOLDOWN_S = 60
 
 
 def _smtp_configured() -> bool:
-    return bool(os.getenv("SMTP_USER", "") and os.getenv("SMTP_PASS", ""))
+    return bool(os.getenv("SENDGRID_API_KEY", "") or (os.getenv("SMTP_USER", "") and os.getenv("SMTP_PASS", "")))
 
 
 def _send_reset_mail_bg(to_email: str, code: str) -> None:
@@ -159,7 +159,15 @@ def _send_reset_mail_bg(to_email: str, code: str) -> None:
 
 
 def _send_reset_mail(to_email: str, code: str) -> bool:
-    """Gửi mã qua Gmail SMTP. Trả về False khi chưa cấu hình (dev): in mã ra log."""
+    """Gửi mã đặt lại mật khẩu.
+
+    - Có SENDGRID_API_KEY: gửi qua HTTPS (dùng cho host chặn SMTP như Render).
+    - Không: Gmail SMTP trực tiếp (dev local). Chưa cấu hình gì: in mã ra log.
+    """
+    api_key = os.getenv("SENDGRID_API_KEY", "")
+    if api_key:
+        _send_via_sendgrid(api_key, to_email, code)
+        return True
     host = os.getenv("SMTP_HOST", "smtp.gmail.com")
     port = int(os.getenv("SMTP_PORT", "587") or 587)
     user = os.getenv("SMTP_USER", "")
@@ -194,6 +202,49 @@ def _send_reset_mail(to_email: str, code: str) -> bool:
                     s.send_message(msg)
             return True
         except Exception as exc:  # noqa: BLE001 - gateway Gmail hay treo, thử lại 1 lần
+            attempts += 1
+            if attempts >= 2:
+                raise
+            print(f"[auth] gui mail lan {attempts} loi {type(exc).__name__}: {exc} — thu lai", flush=True)
+            time.sleep(3)
+
+
+def _send_via_sendgrid(api_key: str, to_email: str, code: str) -> None:
+    """Gửi qua SendGrid HTTPS API (stdlib, không thêm dependency). Thử lại 1 lần."""
+    import urllib.request
+
+    sender = os.getenv("SMTP_USER", "")
+    payload = json.dumps(
+        {
+            "personalizations": [{"to": [{"email": to_email}]}],
+            "from": {"email": sender},
+            "subject": "EnglishFun — ma dat lai mat khau",
+            "content": [
+                {
+                    "type": "text/plain",
+                    "value": (
+                        f"Ma dat lai mat khau EnglishFun cua ban la: {code}\n"
+                        f"Ma co hieu luc {RESET_TTL_MIN} phut. "
+                        "Neu ban khong yeu cau, hay bo qua email nay."
+                    ),
+                }
+            ],
+        }
+    ).encode("utf-8")
+    attempts = 0
+    while True:
+        try:
+            req = urllib.request.Request(
+                "https://api.sendgrid.com/v3/mail/send",
+                data=payload,
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=20) as res:
+                if res.status not in (200, 201, 202):
+                    raise RuntimeError(f"sendgrid status {res.status}")
+            return
+        except Exception as exc:  # noqa: BLE001 - thử lại 1 lần rồi ném ra cho bg task ghi log
             attempts += 1
             if attempts >= 2:
                 raise
