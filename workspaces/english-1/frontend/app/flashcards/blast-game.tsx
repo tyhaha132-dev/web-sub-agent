@@ -5,11 +5,11 @@ import { saveProgress, studySeconds, type Word } from '../../lib/api';
 
 type Dir = 'vi-en' | 'en-vi';
 type Diff = 'easy' | 'normal' | 'hard';
-type Phase = 'setup' | 'ready' | 'playing' | 'won' | 'lost';
+type Phase = 'setup' | 'ready' | 'playing' | 'lost';
 
-const WORDS_PER_GAME = 20;
 const MAX_LIVES = 3;
 const GROUND_Y = 86;
+const MISSED_SHOWN = 30;
 
 interface Floater {
   id: number;
@@ -33,6 +33,7 @@ interface Snap {
   lives: number;
   score: number;
   blasted: number;
+  failed: number;
   spawned: number;
   level: number;
   lastSpawn: number;
@@ -93,11 +94,12 @@ function stepGame(s: Snap, words: Word[], dir: Dir, diff: Diff, speedSetting: nu
   if (s.phase !== 'playing') return s;
   const dt = dtMs / 1000;
   const level = 1 + Math.floor(s.blasted / 5);
-  let { lives, score, blasted, spawned, lastSpawn } = s;
+  let { lives, score, blasted, failed, spawned, lastSpawn } = s;
   let floaters = s.floaters.map((f) => ({ ...f, y: f.y + f.speed * dt }));
   const interval = Math.max(1200, 3600 - speedSetting * 450);
 
-  if (spawned < WORDS_PER_GAME && floaters.length < 3 && now - lastSpawn >= interval && words.length > 0) {
+  // Thien thach roi vo han: cu het cho tren man hinh la tha tiep.
+  if (floaters.length < 3 && now - lastSpawn >= interval && words.length > 0) {
     floaters = [...floaters, spawnFloater(words, dir, diff, speedSetting, level)];
     spawned += 1;
     lastSpawn = now;
@@ -108,19 +110,19 @@ function stepGame(s: Snap, words: Word[], dir: Dir, diff: Diff, speedSetting: nu
   let missed = s.missed;
   if (fallen > 0) {
     lives -= fallen;
+    failed += fallen;
     const newly = floaters
       .filter((f) => f.y >= GROUND_Y)
       .map((f) => ({ prompt: f.prompt, answer: f.answer }));
-    missed = [...missed, ...newly].slice(-WORDS_PER_GAME);
+    missed = [...missed, ...newly].slice(-MISSED_SHOWN);
   }
   floaters = survived;
 
+  // Chi thua khi het mang — khong con dieu kien thang.
   let phase: Phase = 'playing';
   if (lives <= 0) {
     lives = 0;
     phase = 'lost';
-  } else if (spawned >= WORDS_PER_GAME && floaters.length === 0 && s.spawned > 0) {
-    phase = 'won';
   }
 
   const booms = s.booms.filter((b) => now - b.at < 500);
@@ -130,7 +132,7 @@ function stepGame(s: Snap, words: Word[], dir: Dir, diff: Diff, speedSetting: nu
     buffer = '';
   }
 
-  return { ...s, floaters, booms, buffer, targetId, lives, score, blasted, spawned, level, lastSpawn, phase, missed };
+  return { ...s, floaters, booms, buffer, targetId, lives, score, blasted, failed, spawned, level, lastSpawn, phase, missed };
 }
 
 function typeChar(s: Snap, ch: string, now: number): Snap {
@@ -177,6 +179,7 @@ const freshSnap = (now: number): Snap => ({
   lives: MAX_LIVES,
   score: 0,
   blasted: 0,
+  failed: 0,
   spawned: 0,
   level: 1,
   lastSpawn: now,
@@ -249,16 +252,18 @@ export default function BlastGame({
   }, [phase]);
 
   useEffect(() => {
-    if ((snap.phase === 'won' || snap.phase === 'lost') && !savedRef.current) {
+    if (snap.phase === 'lost' && !savedRef.current) {
       savedRef.current = true;
       setPhase(snap.phase);
+      // Do chinh xac = ha / (ha + lot). Ván vo han nen total khong gioi han.
+      const total = snap.blasted + snap.failed;
       if (saveServer) {
-        saveProgress(snap.blasted, WORDS_PER_GAME, 'blast', studySeconds(startRef.current)).catch(() => {});
+        saveProgress(snap.blasted, total, 'blast', studySeconds(startRef.current)).catch(() => {});
       } else {
-        onDone?.(snap.blasted, WORDS_PER_GAME);
+        onDone?.(snap.blasted, total);
       }
     }
-  }, [snap.phase, snap.blasted]);
+  }, [snap.phase, snap.blasted, snap.failed]);
 
   const prevRef = useRef({ blasted: 0, lives: MAX_LIVES });
   useEffect(() => {
@@ -358,7 +363,7 @@ export default function BlastGame({
         <button className="blast-play" onClick={start} disabled={words.length === 0}>
           {words.length === 0 ? '⏳ Đang tải từ...' : 'Chơi'}
         </button>
-        <p className="blast-note">{WORDS_PER_GAME} từ trong bộ · {MAX_LIVES} mạng · nhanh dần theo cấp</p>
+        <p className="blast-note">Thiên thạch rơi vô hạn · {MAX_LIVES} mạng · càng chơi càng nhanh</p>
         <div className="blast-tip">
           <p>⌨️ Gõ đáp án rồi thôi — không cần bấm Enter, khớp là bắn.</p>
           <p>🇻🇳 Chiều Anh → Việt gõ <b>không dấu</b> vẫn tính (“cai thien” = “cải thiện”).</p>
@@ -415,7 +420,7 @@ export default function BlastGame({
         {snap.booms.map((b) => (
           <div key={b.id} className="floater-boom" style={{ left: `${b.x}%`, top: `${Math.max(b.y, 0)}%` }}>💥</div>
         ))}
-        <div className="blast-ground">ĐÁY — đừng để lọt! 💥 {snap.blasted}/{WORDS_PER_GAME}</div>
+        <div className="blast-ground">ĐÁY — đừng để lọt! 💥 Đã hạ {snap.blasted}</div>
       </div>
       {snap.missed.length > 0 && (
         <div className="blast-missed">
@@ -428,9 +433,9 @@ export default function BlastGame({
       <div className="blast-inputbox">
         {snap.buffer || <span className="ph">Gõ đáp án…</span>}
       </div>
-      {(snap.phase === 'won' || snap.phase === 'lost') && (
+      {snap.phase === 'lost' && (
         <div className="blast-end">
-          <h2>{snap.phase === 'won' ? `🏆 Thắng! ${snap.score} điểm` : `💀 Thua rồi! ${snap.blasted}/${WORDS_PER_GAME} từ`}</h2>
+          <h2>💀 Hết mạng! Hạ {snap.blasted} thiên thạch · {snap.score} điểm</h2>
           {snap.missed.length > 0 && (
             <div className="blast-missed-list">
               <p>📝 Ôn lại các từ đã lọt:</p>

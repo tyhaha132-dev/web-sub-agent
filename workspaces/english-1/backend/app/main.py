@@ -738,8 +738,8 @@ def random_quiz(count: int = 10, user: dict = Depends(get_current_user)) -> dict
 
 
 class ProgressIn(BaseModel):
-    score: int = Field(ge=0, le=50)
-    total: int = Field(ge=1, le=50)
+    score: int = Field(ge=0, le=10000)
+    total: int = Field(ge=1, le=10000)
     kind: str = Field(default="quiz", max_length=16)
     duration_sec: int = Field(default=0, ge=0, le=10800)
 
