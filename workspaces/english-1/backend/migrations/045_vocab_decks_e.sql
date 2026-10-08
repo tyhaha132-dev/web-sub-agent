@@ -49,7 +49,7 @@ INSERT INTO words (en, vi, ipa, example, topic) VALUES
 ('icebreaker', 'trò khởi động', '/ˈaɪsbreɪkər/', 'Start with an icebreaker.', 'toeic'),
 ('emcee', 'MC', '/ˌemˈsiː/', 'Our emcee welcomes guests.', 'toeic'),
 ('moderator', 'điều phối viên', '/ˈmɑːdəreɪtər/', 'The panel moderator smiled.', 'toeic'),
-('delegate', 'đại biểu', '/ˈdelɪɡət/', 'Greet every delegate warmly.', 'toeic'),
+('envoy', 'đặc phái viên', '/ˈenvɔɪ/', 'Send an envoy today.', 'toeic'),
 ('presenter', 'người thuyết trình', '/prɪˈzentər/', 'Each presenter gets ten minutes.', 'toeic'),
 ('exhibitor', 'đơn vị triển lãm', '/ɪɡˈzɪbɪtər/', 'New exhibitors joined daily.', 'toeic'),
 ('organizer', 'ban tổ chức', '/ˈɔːrɡənaɪzər/', 'Thank the organizers kindly.', 'toeic'),

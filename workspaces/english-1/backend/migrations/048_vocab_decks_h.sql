@@ -22,7 +22,7 @@ INSERT INTO words (en, vi, ipa, example, topic) VALUES
 ('rating', 'đánh giá', '/ˈreɪtɪŋ/', 'Keep a five-star rating.', 'toeic'),
 ('unboxing', 'đập hộp', '/ʌnˈbɑːksɪŋ/', 'Film a fun unboxing.', 'toeic'),
 ('influencer', 'người ảnh hưởng', '/ˈɪnfluənsər/', 'Partner with local influencers.', 'toeic'),
-('campaign', 'chiến dịch', '/kæmˈpeɪn/', 'Launch the spring campaign.', 'toeic'),
+('drive', 'chiến dịch', '/draɪv/', 'A holiday sales drive.', 'toeic'),
 ('rollout', 'triển khai', '/ˈroʊlaʊt/', 'A nationwide product rollout.', 'toeic'),
 ('teaser', 'nhá hàng', '/ˈtiːzər/', 'Drop a short teaser.', 'toeic'),
 ('reveal', 'ra mắt', '/rɪˈviːl/', 'The big reveal wowed crowds.', 'toeic'),

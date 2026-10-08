@@ -51,7 +51,7 @@ INSERT INTO words (en, vi, ipa, example, topic) VALUES
 ('guide', 'hướng dẫn viên', '/ɡaɪd/', 'Tip your local guide.', 'toeic'),
 ('sightseeing', 'ngắm cảnh', '/ˈsaɪtsiːɪŋ/', 'Go sightseeing downtown.', 'toeic'),
 ('attraction', 'điểm đến', '/əˈtrækʃən/', 'A top-rated attraction.', 'toeic'),
-('admission', 'vé vào', '/ədˈmɪʃən/', 'Free weekend admission.', 'toeic'),
+('admittance', 'sự cho vào', '/ədˈmɪtns/', 'Gain free admittance.', 'toeic'),
 ('ticket', 'vé', '/ˈtɪkɪt/', 'Keep your train ticket.', 'toeic'),
 ('stub', 'cuống vé', '/stʌb/', 'Save the ticket stub.', 'toeic'),
 ('queue', 'xếp hàng', '/kjuː/', 'Join the short queue.', 'toeic'),
