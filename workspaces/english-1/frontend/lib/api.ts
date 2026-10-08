@@ -59,11 +59,12 @@ export async function fetchWords(topic = ''): Promise<Word[] | null> {
     const base = topic
       ? `/api/words?topic=${encodeURIComponent(topic)}`
       : '/api/words';
+    const sep = base.includes('?') ? '&' : '?';
     const all: Word[] = [];
     let total = Number.POSITIVE_INFINITY;
     let offset = 0;
     for (let page = 0; page < 10 && offset < total; page++) {
-      const res = await authFetch(`${base}&limit=500&offset=${offset}`);
+      const res = await authFetch(`${base}${sep}limit=500&offset=${offset}`);
       if (!res.ok) return all.length > 0 ? all : null;
       const data = (await res.json()) as { words?: Word[]; total?: number };
       const words = data.words ?? [];
