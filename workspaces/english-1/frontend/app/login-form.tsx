@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { USERNAME_RE, forgotPassword, login, register, resetPassword } from '../lib/auth';
+import { wakeBackend } from '../lib/api';
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -69,6 +70,11 @@ export default function LoginForm({ onAuth }: { onAuth: (username: string) => vo
   const [doneMsg, setDoneMsg] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  // Danh thuc backend ngay khi mo form (Render free ~50s): nguoi dung nhap lieu xong la vua kip.
+  useEffect(() => {
+    wakeBackend();
+  }, []);
 
   function switchTab(t: 'login' | 'register' | 'forgot') {
     setTab(t);

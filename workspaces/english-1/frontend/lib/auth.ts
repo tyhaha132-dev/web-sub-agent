@@ -40,11 +40,19 @@ export async function authFetch(path: string, init: RequestInit = {}): Promise<R
   const headers = new Headers(init.headers ?? {});
   if (token) headers.set('Authorization', `Bearer ${token}`);
   if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  // Render free ngu dong: lan goi dau co the treo ~50s+. Timeout 60s de khong treo nut vo han.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 60000);
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${path}`, { ...init, headers, cache: 'no-store' });
-  } catch {
+    res = await fetch(`${API_BASE}${path}`, { ...init, headers, cache: 'no-store', signal: ctrl.signal });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('Máy chủ đang khởi động (gói miễn phí ~1 phút). Đợi chút rồi bấm lại nhé.');
+    }
     throw new Error('Không nối được máy chủ (backend chưa chạy?).');
+  } finally {
+    clearTimeout(timer);
   }
   if (res.status === 401) {
     // Không gửi token (đăng nhập/đăng ký/quên pass): 401 là lỗi nghiệp vụ -> hiện đúng lỗi server.
