@@ -2,7 +2,7 @@
 -- Cot: en (UNIQUE) | vi | ipa | example | topic=toeic.
 
 INSERT INTO words (en, vi, ipa, example, topic) VALUES
-('stationery', 'văn phòng phẩm', '/ˈsteɪʃənəri/', 'Order more office stationery.', 'toeic'),
+('stationery', 'văn phòng phẩm', '/ˈsteɪʃəˌneri/', 'Order more office stationery.', 'toeic'),
 ('stapler', 'máy dập ghim', '/ˈsteɪplər/', 'The stapler is out of pins.', 'toeic'),
 ('binder', 'bìa kẹp hồ sơ', '/ˈbaɪndər/', 'File it in the blue binder.', 'toeic'),
 ('clipboard', 'bảng kẹp giấy', '/ˈklɪpbɔːrd/', 'Sign on the clipboard.', 'toeic'),
