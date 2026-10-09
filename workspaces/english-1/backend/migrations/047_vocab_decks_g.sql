@@ -4,7 +4,7 @@ INSERT INTO words (en, vi, ipa, example, topic) VALUES
 ('room service', 'phục vụ phòng', '/ˈruːm ˈsɜːrvɪs/', 'Order late room service.', 'toeic'),
 ('turndown', 'dọn phòng tối', '/ˈtɜːrndaʊn/', 'Nightly turndown service charms.', 'toeic'),
 ('wake-up call', 'gọi báo thức', '/ˈweɪk ʌp kɔːl/', 'Book a 6 a.m. wake-up call.', 'toeic'),
-('upgrade', 'nâng hạng', '/ˌʌpˈɡreɪd/', 'Request a free upgrade.', 'toeic'),
+('upgrade', 'nâng cấp', '/ˌʌpˈɡreɪd/', 'Upgrade to business class.', 'toeic'),
 ('downgrade', 'hạ hạng', '/ˈdaʊnɡreɪd/', 'Never downgrade safety.', 'toeic'),
 ('overbook', 'bán quá chỗ', '/ˌoʊvərˈbʊk/', 'Airlines often overbook flights.', 'toeic'),
 ('bump', 'chuyển chuyến', '/bʌmp/', 'Bumped to a later flight.', 'toeic'),

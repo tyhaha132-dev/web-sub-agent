@@ -56,7 +56,7 @@ INSERT INTO words (en, vi, ipa, example, topic) VALUES
 ('mentee', 'người được cố vấn', '/menˈtiː/', 'Guide each new mentee.', 'toeic'),
 ('handbook', 'sổ tay', '/ˈhændbʊk/', 'Read the staff handbook.', 'toeic'),
 ('grievance', 'khiếu nại', '/ˈɡriːvəns/', 'File a formal grievance.', 'toeic'),
-('dispute', 'tranh chấp', '/dɪˈspjuːt/', 'Settle the pay dispute.', 'toeic'),
+('dispute', 'tranh chấp', '/ˈdɪspjuːt/', 'Settle the pay dispute.', 'toeic'),
 ('mediate', 'hòa giải', '/ˈmiːdieɪt/', 'Mediate the shift dispute.', 'toeic'),
 ('arbitrate', 'phân xử', '/ˈɑːrbɪtreɪt/', 'Arbitrate contract conflicts.', 'toeic'),
 ('union', 'công đoàn', '/ˈjuːnjən/', 'Join the labor union.', 'toeic'),
