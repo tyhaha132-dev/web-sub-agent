@@ -92,8 +92,13 @@ USERNAME_RE = re.compile(r"^[A-Za-z0-9_.-]{3,32}$")
 SESSION_DAYS = 7
 
 
+# Cost 10 thay vi default 12: du an toan, nhanh ~8 lan tren CPU yeu
+# (Render free: ~1.8s -> ~0.2s). Hash cu cost 12 van check duoc binh thuong.
+_BCRYPT_ROUNDS = 10
+
+
 def _hash_pw(password: str) -> str:
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("ascii")
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=_BCRYPT_ROUNDS)).decode("ascii")
 
 
 def _check_pw(password: str, hashed: str) -> bool:
@@ -105,7 +110,7 @@ def _check_pw(password: str, hashed: str) -> bool:
 
 # Hash gia tinh 1 lan luc import: login user khong ton tai van chay bcrypt
 # de thoi gian phan hoi giong het user co ton tai (chong doan tai khoan).
-_DUMMY_HASH = bcrypt.hashpw(b"englishfun-dummy-password", bcrypt.gensalt()).decode("ascii")
+_DUMMY_HASH = bcrypt.hashpw(b"englishfun-dummy-password", bcrypt.gensalt(rounds=_BCRYPT_ROUNDS)).decode("ascii")
 
 
 def _issue_token(user_id: int) -> str:
