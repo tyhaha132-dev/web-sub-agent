@@ -44,7 +44,7 @@ function buildDecks(all: Word[]): Deck[] {
     n += 1;
     const left = count - decks.length;
     const size = Math.max(1, Math.ceil((all.length - i) / left));
-    decks.push({ name: `Toeic ${n}`, words: all.slice(i, i + size) });
+    decks.push({ name: `Flashcards ${n}`, words: all.slice(i, i + size) });
     i += size;
   }
   return decks;
