@@ -1,26 +1,50 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import ThemeToggle from './theme-toggle';
 import LoginForm from './login-form';
 import { fetchMe, getToken, logout } from '../lib/auth';
+import { authFetch } from '../lib/auth';
 import { startActivityTracker } from '../lib/api';
 
 const links = [
-  ['Trang chủ', '/'],
-  ['Từ điển', '/dictionary'],
-  ['Luyện tập', '/flashcards'],
-  ['Quiz', '/quiz'],
-  ['TOEIC', '/toeic'],
-  ['Tiến độ', '/progress'],
-  ['Xếp hạng', '/leaderboard'],
-  ['Thư mục', '/folders'],
+  ['Trang chủ', '/', '🏠'],
+  ['Từ điển', '/dictionary', '🔤'],
+  ['Luyện tập', '/flashcards', '🃏'],
+  ['Quiz', '/quiz', '🏆'],
+  ['TOEIC', '/toeic', '💼'],
+  ['Tiến độ', '/progress', '📈'],
+  ['Xếp hạng', '/leaderboard', '🥇'],
+  ['Thư mục', '/folders', '📁'],
 ] as const;
 
-/** Cổng đăng nhập: chưa có phiên hợp lệ thì chỉ hiện form login/register. */
+function calculateStreak(daily: { day: string; minutes: number }[]): number {
+  if (!daily || daily.length === 0) return 0;
+  const sorted = [...daily].filter((d) => d.minutes > 0).map((d) => d.day).sort().reverse();
+  if (sorted.length === 0) return 0;
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  if (sorted[0] !== today && sorted[0] !== yesterday) return 0;
+  let streak = 1;
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const cur = new Date(sorted[i]).getTime();
+    const prev = new Date(sorted[i + 1]).getTime();
+    const diffDays = Math.round((cur - prev) / 86400000);
+    if (diffDays === 1) streak++;
+    else if (diffDays > 1) break;
+  }
+  return streak;
+}
+
 export default function AuthGate({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
+  const [streak, setStreak] = useState<number | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!getToken()) {
@@ -28,9 +52,19 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       return;
     }
     fetchMe()
-      .then((name) => { setUser(name); startActivityTracker(); })
+      .then((name) => {
+        setUser(name);
+        startActivityTracker();
+        authFetch('/api/progress')
+          .then((r) => r.json())
+          .then((d: { daily?: { day: string; minutes: number }[] }) => {
+            if (d && d.daily) setStreak(calculateStreak(d.daily));
+          })
+          .catch(() => {});
+      })
       .catch(() => setUser(null))
       .finally(() => setChecking(false));
+
     const onExpired = () => setUser(null);
     window.addEventListener('auth-expired', onExpired);
     return () => window.removeEventListener('auth-expired', onExpired);
@@ -39,49 +73,273 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   async function doLogout() {
     await logout();
     setUser(null);
+    setStreak(null);
   }
 
+  // 1. Loading state
   if (checking) {
     return (
-      <div className="page">
+      <div className="page loading-wrap">
         <main>
-          <div className="panel">⏳ Đang kiểm tra phiên đăng nhập...</div>
+          <div className="loading-panel">
+            <span className="loading-icon" role="img" aria-label="Book">📚</span>
+            <h2 className="loading-title">Đang khởi tạo EnglishFun...</h2>
+            <p className="loading-sub">Chuẩn bị từ điển, flashcard 3D và ngân hàng đề thi TOEIC</p>
+            <div className="loading-track" aria-hidden="true">
+              <div className="loading-fill" />
+            </div>
+          </div>
         </main>
       </div>
     );
   }
 
-  if (!user) {
+  // 2. Chưa đăng nhập & muốn vào thẳng form đăng nhập hoặc đang ở các route yêu cầu đăng nhập
+  const isHomePage = pathname === '/' || pathname === '' || pathname === null;
+  if (!user && (!isHomePage || showLogin)) {
     return (
-      <div className="page">
-        <LoginForm onAuth={(name) => { setUser(name); startActivityTracker(); }} />
-      </div>
+      <>
+        <header className="site-header">
+          <div className="header-brand-wrap">
+            <Link className="site-logo" href="/" title="EnglishFun - Luyện tiếng Anh mỗi ngày">
+              <span>📚</span>
+              <span>English<span className="brand-num">Fun</span></span>
+              <span className="logo-badge">Pro</span>
+            </Link>
+          </div>
+          <span className="header-spacer" />
+          <div className="header-actions">
+            <Link href="/" className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setShowLogin(false)}>
+              🏠 Trang chủ
+            </Link>
+            <ThemeToggle />
+          </div>
+        </header>
+        <div className="page">
+          {showLogin && (
+            <div style={{ marginBottom: 16 }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setShowLogin(false)}
+              >
+                ← Quay lại trang chủ
+              </button>
+            </div>
+          )}
+          <LoginForm
+            onAuth={(name) => {
+              setUser(name);
+              setShowLogin(false);
+              startActivityTracker();
+            }}
+          />
+        </div>
+      </>
     );
   }
 
+  // 3. Đã đăng nhập hoặc đang xem trang chủ ở chế độ khách
   return (
     <>
       <header className="site-header">
-        <a className="site-logo" href="/">📚 English<span>Fun</span></a>
-        <nav className="site-nav">
-          {links.map(([label, href]) => (
-            <a key={href} href={href}>{label}</a>
-          ))}
+        <div className="header-brand-wrap">
+          <Link className="site-logo" href="/" title="EnglishFun - Luyện tiếng Anh mỗi ngày">
+            <span>📚</span>
+            <span>English<span className="brand-num">Fun</span></span>
+            <span className="logo-badge">Pro</span>
+          </Link>
+        </div>
+
+        <nav className="site-nav" aria-label="Điều hướng chính">
+          {links.map(([label, href, icon]) => {
+            const isActive = pathname === href || (href !== '/' && !!pathname?.startsWith(href));
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`nav-item ${isActive ? 'active' : ''}`}
+              >
+                <span className="nav-icon">{icon}</span>
+                <span className="nav-label">{label}</span>
+              </Link>
+            );
+          })}
         </nav>
+
         <span className="header-spacer" />
-        <span style={{ color: '#fff', fontSize: 14 }}>👤 {user}</span>
-        <a href="/account" style={{ color: '#fff', fontSize: 14 }}>⚙️ Tài khoản</a>
-        <button
-          onClick={() => void doLogout()}
-          style={{ background: 'transparent', border: '1px solid #fff', color: '#fff', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontSize: 14 }}
-        >
-          Đăng xuất
-        </button>
-        <ThemeToggle />
+
+        <div className="header-actions">
+          {user ? (
+            <>
+              {streak !== null && streak > 0 && (
+                <span className="header-streak" title="Chuỗi ngày học liên tục">
+                  <span role="img" aria-label="streak">🔥</span> {streak} ngày
+                </span>
+              )}
+              <span className="header-user" title={`Tài khoản: ${user}`}>
+                👤 <span className="user-name">{user}</span>
+              </span>
+              <Link href="/account" title="Cài đặt tài khoản" style={{ color: '#ffffff', fontSize: 13, fontWeight: 600 }}>
+                ⚙️
+              </Link>
+              <button
+                type="button"
+                className="header-logout"
+                onClick={() => void doLogout()}
+                title="Đăng xuất khỏi tài khoản"
+              >
+                Đăng xuất
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-light"
+              style={{ padding: '6px 16px', fontSize: 13.5, fontWeight: 700 }}
+              onClick={() => setShowLogin(true)}
+            >
+              🔑 Đăng nhập / Đăng ký
+            </button>
+          )}
+
+          <ThemeToggle />
+
+          <button
+            type="button"
+            className={`hamburger-btn ${menuOpen ? 'active' : ''}`}
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label="Menu"
+            title="Mở menu"
+          >
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+        </div>
       </header>
+
+      {/* Mobile Drawer Menu */}
+      {menuOpen && (
+        <div className="mobile-menu-overlay" onClick={() => setMenuOpen(false)}>
+          <div className="mobile-menu-drawer" onClick={(e) => e.stopPropagation()}>
+            <div className="mobile-menu-header">
+              <div className="site-logo">
+                <span>📚 English<span className="brand-num">Fun</span></span>
+              </div>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => setMenuOpen(false)}
+                style={{ padding: '4px 10px', fontSize: 18 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {user && (
+              <div className="mobile-user-card">
+                <span style={{ fontSize: 24 }}>👤</span>
+                <div>
+                  <b style={{ display: 'block', color: 'var(--heading)' }}>{user}</b>
+                  {streak !== null && streak > 0 && (
+                    <span style={{ fontSize: 13, color: '#f59e0b', fontWeight: 700 }}>
+                      🔥 Chuỗi {streak} ngày học liên tục
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <nav className="mobile-nav-list">
+              {links.map(([label, href, icon]) => {
+                const isActive = pathname === href || (href !== '/' && !!pathname?.startsWith(href));
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={`mobile-nav-item ${isActive ? 'active' : ''}`}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <span style={{ fontSize: 18 }}>{icon}</span>
+                    <span>{label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <div className="mobile-menu-footer">
+              {user ? (
+                <>
+                  <Link
+                    href="/account"
+                    className="btn btn-ghost"
+                    style={{ width: '100%', marginBottom: 10, textAlign: 'center', display: 'block' }}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    ⚙️ Quản lý tài khoản
+                  </Link>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      void doLogout();
+                    }}
+                    style={{ width: '100%' }}
+                  >
+                    Đăng xuất
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setShowLogin(true);
+                  }}
+                  style={{ width: '100%' }}
+                >
+                  🔑 Đăng nhập / Đăng ký
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="page">{children}</div>
+
       <footer className="site-footer">
-        EnglishFun — học từ vựng, quiz và tiến độ mỗi ngày 🎯
+        <div className="footer-inner">
+          <div className="footer-brand">
+            <div className="footer-logo">
+              <span>📚 English<span className="brand-num" style={{ color: '#fde68a', marginLeft: 2 }}>Fun</span></span>
+              <span className="logo-badge" style={{ marginLeft: 8 }}>Học là nhớ</span>
+            </div>
+            <p className="footer-desc">
+              Nền tảng học tiếng Anh trực quan và toàn diện. Kết hợp Flashcard 3D thông minh, phương pháp Spaced Repetition, luyện đề TOEIC Reading chuẩn thi thật và đấu trường Quiz kịch tính.
+            </p>
+          </div>
+          <div className="footer-links-group">
+            <span className="footer-heading">Chức năng chính</span>
+            <div className="footer-links">
+              <Link href="/dictionary">🔤 Từ điển Anh–Việt</Link>
+              <Link href="/flashcards">🃏 Flashcard 3D</Link>
+              <Link href="/quiz">🏆 Đấu trường Quiz</Link>
+              <Link href="/toeic">💼 Luyện thi TOEIC</Link>
+              <Link href="/progress">📈 Theo dõi tiến độ</Link>
+              <Link href="/leaderboard">🥇 Bảng xếp hạng</Link>
+              <Link href="/folders">📁 Thư mục của tôi</Link>
+              <Link href="/account">⚙️ Tài khoản cá nhân</Link>
+            </div>
+          </div>
+        </div>
+        <div className="footer-bottom">
+          <span>EnglishFun • Nền tảng học từ vựng và luyện phản xạ tiếng Anh mỗi ngày 🎯</span>
+          <span className="footer-tag">Phiên bản 2.0</span>
+        </div>
       </footer>
     </>
   );
