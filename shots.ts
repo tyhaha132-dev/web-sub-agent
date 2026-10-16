@@ -32,7 +32,39 @@ await page.screenshot({ path: `${OUT}/home-dark.png`, fullPage: true });
 await page.click(".theme-toggle >> nth=0"); // Chuyển lại sáng
 console.log("shot home-dark ok");
 
-// 3. Đăng ký tài khoản test để vượt qua AuthGate
+// 3. Từ điển Tra cứu công khai (Public Landing Page - Không yêu cầu đăng nhập trước)
+await page.goto(BASE + "/dictionary", { waitUntil: "networkidle", timeout: 30000 });
+await page.waitForTimeout(1000);
+await page.screenshot({ path: `${OUT}/dictionary.png` });
+await page.screenshot({ path: `${OUT}/dictionary-full.png`, fullPage: true });
+console.log("shot dictionary public landing ok");
+
+// Chế độ tối trên trang từ điển
+try {
+  await page.click(".theme-toggle >> nth=0");
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: `${OUT}/dictionary-dark.png`, fullPage: true });
+  await page.click(".theme-toggle >> nth=0");
+  console.log("shot dictionary-dark ok");
+} catch (e) {
+  console.log("dict theme toggle note:", e);
+}
+
+// Thử tìm kiếm từ "apple"
+try {
+  const searchInput = await page.$('input[placeholder*="Nhập từ"]');
+  if (searchInput) {
+    await searchInput.fill("apple");
+    await page.click('button[type="submit"]');
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: `${OUT}/dictionary-search.png` });
+    console.log("shot dictionary-search ok");
+  }
+} catch (e) {
+  console.log("dict search note:", e);
+}
+
+// 4. Đăng ký tài khoản test để kiểm thử các route cần auth
 const stamp = String(Date.now()).slice(-5);
 const uname = `shot${stamp}`;
 await page.goto(BASE + "/flashcards", { waitUntil: "networkidle" });
@@ -53,7 +85,7 @@ try {
   console.log("auth test note:", e);
 }
 
-// 4. Flashcards 3D Page Test & Screenshots
+// 5. Flashcards 3D Page Test & Screenshots
 await page.goto(BASE + "/flashcards", { waitUntil: "networkidle", timeout: 30000 });
 await page.waitForSelector(".flash3d", { timeout: 15000 });
 await page.waitForTimeout(800);
@@ -71,25 +103,13 @@ try {
   console.log("flash3d flip note:", e);
 }
 
-// Chế độ tối trên flashcards
-try {
-  await page.click(".theme-toggle >> nth=0");
-  await page.waitForTimeout(600);
-  await page.screenshot({ path: `${OUT}/flashcards-3d-dark.png` });
-  await page.click(".theme-toggle >> nth=0");
-  console.log("shot flashcards-3d-dark ok");
-} catch (e) {
-  console.log("flash3d theme toggle note:", e);
-}
-
-// 5. Làm thử Quiz để tạo dữ liệu điểm số thực tế cho trang Tiến độ
+// 6. Làm thử Quiz để tạo dữ liệu điểm số thực tế
 await page.goto(BASE + "/quiz", { waitUntil: "networkidle" });
 await page.waitForTimeout(800);
 const startQuizBtn = await page.$("text=Bắt đầu ngay");
 if (startQuizBtn) {
   await startQuizBtn.click();
   await page.waitForTimeout(1000);
-  // Trả lời 2-3 câu hỏi để có lượt học ghi nhận
   for (let q = 0; q < 3; q++) {
     try {
       const choice = await page.$(".choice-btn");
@@ -105,7 +125,7 @@ if (startQuizBtn) {
   console.log("shot quiz-play with attempts ok");
 }
 
-// 6. Test trang Tiến độ học tập (Progress Page chuẩn bio-app)
+// 7. Test trang Tiến độ học tập (Progress Page chuẩn bio-app)
 await page.goto(BASE + "/progress", { waitUntil: "networkidle", timeout: 30000 });
 await page.waitForTimeout(1000);
 
@@ -113,36 +133,13 @@ await page.screenshot({ path: `${OUT}/progress.png` });
 await page.screenshot({ path: `${OUT}/progress-full.png`, fullPage: true });
 console.log("shot progress & progress-full ok");
 
-// Chụp trang Tiến độ ở chế độ tối Dark mode
-try {
-  await page.click(".theme-toggle >> nth=0");
-  await page.waitForTimeout(600);
-  await page.screenshot({ path: `${OUT}/progress-dark.png`, fullPage: true });
-  await page.click(".theme-toggle >> nth=0"); // Chuyển lại sáng
-  console.log("shot progress-dark ok");
-} catch (e) {
-  console.log("progress theme toggle note:", e);
-}
-
-// 7. Các routes chính còn lại
-for (const route of ["/dictionary", "/toeic", "/folders"]) {
+// 8. Các routes chính còn lại
+for (const route of ["/toeic", "/folders"]) {
   await page.goto(BASE + route, { waitUntil: "networkidle", timeout: 30000 });
   await page.waitForTimeout(800);
   const name = route.slice(1);
   await page.screenshot({ path: `${OUT}/${name}.png` });
   console.log(`shot ${route} ok`);
-}
-
-// 8. Tương tác từ điển sau login
-await page.goto(BASE + "/dictionary", { waitUntil: "networkidle" });
-await page.waitForTimeout(800);
-const searchInput = await page.$('input[placeholder*="Nhập từ"]');
-if (searchInput) {
-  await searchInput.fill("learn");
-  await page.click('button[type="submit"]');
-  await page.waitForTimeout(1500);
-  await page.screenshot({ path: `${OUT}/dictionary-search.png` });
-  console.log("shot dictionary-search ok");
 }
 
 // 9. Quay lại home khi đã đăng nhập

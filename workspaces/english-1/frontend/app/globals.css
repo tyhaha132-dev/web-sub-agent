@@ -1422,6 +1422,89 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* --------------------------------------------------------------------------
+   DICTIONARY GRID & CARDS (CHUẨN BIO-APP)
+   -------------------------------------------------------------------------- */
+.dict-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.dict-card {
+  background: var(--panel);
+  border-radius: var(--card-radius);
+  padding: 22px;
+  box-shadow: var(--card-shadow);
+  border: 1.5px solid var(--border-soft);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.dict-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--card-shadow-hover), 0 0 24px rgba(124, 58, 237, 0.2);
+  border-color: #a855f7;
+}
+
+.dict-card h3 {
+  font-size: 20px;
+  letter-spacing: -0.3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-weight: 800;
+  color: var(--heading);
+}
+
+.dict-card .ipa {
+  color: #9333ea;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+[data-theme="dark"] .dict-card .ipa {
+  color: #c084fc;
+}
+
+.dict-illus-box {
+  flex-shrink: 0;
+  padding: 6px;
+  background: var(--surface-2);
+  border-radius: 12px;
+  border: 1px solid var(--border-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dict-memory-tip {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-left: 3px solid #f59e0b;
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #92400e;
+  font-size: 12.5px;
+  margin-top: 10px;
+  line-height: 1.5;
+}
+
+[data-theme="dark"] .dict-memory-tip {
+  background: rgba(120, 53, 15, 0.25);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fde68a;
+}
+
+/* --------------------------------------------------------------------------
    FLASHCARD 3D ENGINE & TOOLBAR (CHUẨN BIO-APP)
    -------------------------------------------------------------------------- */
 .toolbar-panel {

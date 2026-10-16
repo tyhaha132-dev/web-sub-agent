@@ -96,7 +96,9 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
   // 2. Chưa đăng nhập & muốn vào thẳng form đăng nhập hoặc đang ở các route yêu cầu đăng nhập
   const isHomePage = pathname === '/' || pathname === '' || pathname === null;
-  if (!user && (!isHomePage || showLogin)) {
+  const isDictionaryPage = pathname === '/dictionary' || pathname?.startsWith('/dictionary');
+  const isPublicPage = isHomePage || isDictionaryPage;
+  if (!user && (!isPublicPage || showLogin)) {
     return (
       <>
         <header className="site-header">
@@ -123,7 +125,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
                 className="btn btn-ghost"
                 onClick={() => setShowLogin(false)}
               >
-                ← Quay lại trang chủ
+                ← Quay lại
               </button>
             </div>
           )}

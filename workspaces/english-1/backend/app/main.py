@@ -148,6 +148,25 @@ def get_current_user(authorization: str = Header(default="")) -> dict:
     return {"id": row["uid"], "username": row["username"], "token_hash": digest}
 
 
+def get_current_user_optional(authorization: str = Header(default="")) -> dict | None:
+    if not authorization.startswith("Bearer "):
+        return None
+    digest = hashlib.sha256(authorization[7:].encode("utf-8")).hexdigest()
+    engine = get_engine()
+    with engine.connect() as conn:
+        row = conn.execute(
+            text(
+                "SELECT s.user_id AS uid, u.username AS username "
+                "FROM user_sessions s JOIN users u ON u.id = s.user_id "
+                "WHERE s.token_hash = :h AND s.created_at > NOW() - make_interval(0, 0, 0, :d)"
+            ),
+            {"h": digest, "d": SESSION_DAYS},
+        ).mappings().one_or_none()
+    if row is None:
+        return None
+    return {"id": row["uid"], "username": row["username"], "token_hash": digest}
+
+
 class RegisterIn(BaseModel):
     username: str = Field(min_length=3, max_length=32)
     password: str = Field(min_length=4, max_length=128)
@@ -464,7 +483,7 @@ def list_words(
     topic: str = "",
     limit: int = WORDS_DEFAULT_LIMIT,
     offset: int = 0,
-    user: dict = Depends(get_current_user),
+    user: dict | None = Depends(get_current_user_optional),
 ) -> dict:
     # Gioi han phan hoi (chong full-dump): mac dinh 100, toi da 500.
     limit = max(1, min(limit, WORDS_MAX_LIMIT))
@@ -493,7 +512,7 @@ def list_words(
 
 
 @app.get("/api/words/search")
-def search_words(q: str = "", topic: str = "", user: dict = Depends(get_current_user)) -> dict:
+def search_words(q: str = "", topic: str = "", user: dict | None = Depends(get_current_user_optional)) -> dict:
     keyword = f"%{q.strip()}%"
     engine = get_engine()
     with engine.connect() as conn:
@@ -676,7 +695,7 @@ def _pick_english_audio(items: list) -> str:
 
 
 @app.get("/api/words/audio")
-def word_audio(en: str = "", user: dict = Depends(get_current_user)) -> dict:
+def word_audio(en: str = "", user: dict | None = Depends(get_current_user_optional)) -> dict:
     word = " ".join(en.strip().split())
     if not word or len(word) > 60 or not WORD_RE.match(word):
         return {"audio": None, "query": en.strip()[:60]}
@@ -697,7 +716,7 @@ def word_audio(en: str = "", user: dict = Depends(get_current_user)) -> dict:
 
 
 @app.get("/api/words/lookup")
-def lookup_word(en: str = "", user: dict = Depends(get_current_user)) -> dict:
+def lookup_word(en: str = "", user: dict | None = Depends(get_current_user_optional)) -> dict:
     word = " ".join(en.strip().split())
     if not word or len(word) > 60:
         return {"source": "none", "words": [], "external": None, "query": en.strip()[:60]}
@@ -718,7 +737,7 @@ def lookup_word(en: str = "", user: dict = Depends(get_current_user)) -> dict:
 
 
 @app.get("/api/topics")
-def list_topics(user: dict = Depends(get_current_user)) -> dict:
+def list_topics(user: dict | None = Depends(get_current_user_optional)) -> dict:
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
