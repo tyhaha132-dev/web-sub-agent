@@ -103,16 +103,48 @@ try {
   console.log("flash3d flip note:", e);
 }
 
-// 6. Làm thử Quiz để tạo dữ liệu điểm số thực tế
-await page.goto(BASE + "/quiz", { waitUntil: "networkidle" });
+// 6. Test Quiz Đấu trường phản xạ 20s chuẩn bio-app
+await page.goto(BASE + "/quiz", { waitUntil: "networkidle", timeout: 30000 });
 await page.waitForTimeout(800);
-const startQuizBtn = await page.$("text=Bắt đầu ngay");
+await page.screenshot({ path: `${OUT}/quiz-setup.png` });
+
+try {
+  await page.click(".theme-toggle >> nth=0");
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: `${OUT}/quiz-setup-dark.png` });
+  await page.click(".theme-toggle >> nth=0");
+} catch (e) {
+  console.log("quiz theme toggle note:", e);
+}
+
+// Chọn 5 câu hỏi để hoàn thành nhanh
+const fiveBtn = await page.$("text=5 câu");
+if (fiveBtn) await fiveBtn.click();
+await page.waitForTimeout(400);
+
+const startQuizBtn = (await page.$("text=Bắt đầu làm bài thi ngay")) || (await page.$("text=Bắt đầu ngay"));
 if (startQuizBtn) {
   await startQuizBtn.click();
   await page.waitForTimeout(1000);
-  for (let q = 0; q < 3; q++) {
+  await page.screenshot({ path: `${OUT}/quiz-q1.png` });
+
+  // Trả lời câu 1
+  const firstChoice = await page.$(".choice-btn");
+  if (firstChoice) {
+    await firstChoice.click();
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: `${OUT}/quiz-answered.png` });
+  }
+
+  // Làm hết 5 câu để ra màn hình kết quả
+  for (let q = 0; q < 5; q++) {
     try {
-      const choice = await page.$(".choice-btn");
+      const nextBtn = (await page.$("text=Câu tiếp theo")) || (await page.$("text=Xem kết quả"));
+      if (nextBtn) {
+        await nextBtn.click();
+        await page.waitForTimeout(500);
+      }
+      const choice = await page.$(".choice-btn:not([disabled])");
       if (choice) {
         await choice.click();
         await page.waitForTimeout(500);
@@ -121,8 +153,19 @@ if (startQuizBtn) {
       break;
     }
   }
+
+  // Click nút xem kết quả cuối cùng nếu còn
+  const finalBtn = await page.$("text=Xem kết quả");
+  if (finalBtn) {
+    await finalBtn.click();
+    await page.waitForTimeout(800);
+  }
+
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: `${OUT}/quiz-done.png` });
   await page.screenshot({ path: `${OUT}/quiz-play.png` });
-  console.log("shot quiz-play with attempts ok");
+  console.log("shot quiz setup, q1, answered, done ok");
 }
 
 // 7. Test trang Tiến độ học tập (Progress Page chuẩn bio-app)

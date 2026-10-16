@@ -18,6 +18,9 @@ export interface QuizQuestion {
   en: string;
   choices: string[];
   answer: string;
+  ipa?: string;
+  example?: string;
+  topic?: string;
 }
 
 export interface ExternalMeaning {
@@ -207,8 +210,11 @@ export async function fetchTopics(): Promise<Topic[] | null> {
   }
 }
 
-export async function fetchQuiz(count = 10): Promise<QuizQuestion[]> {
-  const res = await authFetch(`/api/quiz/random?count=${count}`);
+export async function fetchQuiz(count = 10, topic = ''): Promise<QuizQuestion[]> {
+  const url = topic
+    ? `/api/quiz/random?count=${count}&topic=${encodeURIComponent(topic)}`
+    : `/api/quiz/random?count=${count}`;
+  const res = await authFetch(url);
   if (!res.ok) throw new Error(`quiz API responded ${res.status}`);
   const data = (await res.json()) as { questions?: QuizQuestion[] };
   return data.questions ?? [];

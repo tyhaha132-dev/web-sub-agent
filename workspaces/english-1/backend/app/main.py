@@ -747,12 +747,20 @@ def list_topics(user: dict | None = Depends(get_current_user_optional)) -> dict:
 
 
 @app.get("/api/quiz/random")
-def random_quiz(count: int = 10, user: dict = Depends(get_current_user)) -> dict:
+def random_quiz(topic: str = "", count: int = 10, user: dict = Depends(get_current_user_optional)) -> dict:
     count = max(1, min(count, 50))
     engine = get_engine()
     with engine.connect() as conn:
-        words = conn.execute(text("SELECT id, en, vi FROM words")).mappings().all()
-    words = [dict(w) for w in words]
+        if topic:
+            rows = conn.execute(
+                text("SELECT id, en, vi, topic, ipa, example FROM words WHERE topic = :t"),
+                {"t": topic},
+            ).mappings().all()
+            if len(rows) < 4:
+                rows = conn.execute(text("SELECT id, en, vi, topic, ipa, example FROM words")).mappings().all()
+        else:
+            rows = conn.execute(text("SELECT id, en, vi, topic, ipa, example FROM words")).mappings().all()
+    words = [dict(w) for w in rows]
     if len(words) < 4:
         raise HTTPException(status_code=400, detail="need at least 4 words for a quiz")
     picked = random.sample(words, min(count, len(words)))
@@ -761,8 +769,16 @@ def random_quiz(count: int = 10, user: dict = Depends(get_current_user)) -> dict
         distractors = random.sample([x["vi"] for x in words if x["id"] != w["id"]], 3)
         choices = distractors + [w["vi"]]
         random.shuffle(choices)
-        questions.append({"en": w["en"], "choices": choices, "answer": w["vi"]})
+        questions.append({
+            "en": w["en"],
+            "choices": choices,
+            "answer": w["vi"],
+            "ipa": w.get("ipa") or "",
+            "example": w.get("example") or "",
+            "topic": w.get("topic") or "",
+        })
     return {"questions": questions, "total": len(questions)}
+
 
 
 class ProgressIn(BaseModel):
