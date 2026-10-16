@@ -62,7 +62,11 @@ _TAG_RE = re.compile(r"<[^>]+>")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.getenv("FRONTEND_URL", "http://localhost:3000")],
+    allow_origins=[
+        os.getenv("FRONTEND_URL", "http://localhost:3000"),
+        "http://localhost:3000",
+        "http://localhost:3005",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
