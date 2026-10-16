@@ -1346,6 +1346,351 @@ h1, h2, h3, h4, h5, h6 {
 }
 .flip-card small { font-size: 14px; font-weight: 400; opacity: 0.85; margin-top: 12px; }
 
+/* --------------------------------------------------------------------------
+   FLASHCARD 3D ENGINE & TOOLBAR (CHUẨN BIO-APP)
+   -------------------------------------------------------------------------- */
+.toolbar-panel {
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 18px;
+  box-shadow: var(--card-shadow);
+}
+
+.chip-select {
+  border: 2px solid var(--chip-border);
+  background: var(--chip-bg);
+  color: var(--chip-text);
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.chip-select:hover {
+  border-color: #a855f7;
+}
+
+.chip-select:focus {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+}
+
+.category-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #7c3aed, #ec4899);
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  padding: 4px 14px;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.28);
+}
+
+.progress-track {
+  background: var(--ghost-bg);
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 10px 0 16px;
+  border: 1px solid var(--chip-border);
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #7c3aed, #ec4899);
+  border-radius: 999px;
+  transition: width 0.35s ease;
+}
+
+.flash3d {
+  perspective: 1400px;
+  margin-top: 16px;
+  cursor: pointer;
+}
+
+.flash3d-inner {
+  position: relative;
+  min-height: 480px;
+  transform-style: preserve-3d;
+  transition: transform 0.65s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+.flash3d.flipped .flash3d-inner {
+  transform: rotateY(180deg);
+}
+
+.flash3d-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  background: var(--panel);
+  border-radius: 24px;
+  padding: 24px 28px;
+  box-shadow: var(--card-shadow);
+  border: 1.5px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: box-shadow 0.35s ease, border-color 0.35s ease, transform 0.35s ease;
+  overflow-y: auto;
+}
+
+.flash3d:hover .flash3d-face {
+  box-shadow: var(--card-shadow-hover), 0 0 30px rgba(124, 58, 237, 0.22);
+  border-color: #a855f7;
+}
+
+.flash3d-front {
+  background: var(--panel);
+}
+
+.flash3d-back {
+  transform: rotateY(180deg);
+  background: #ffffff;
+  border: 2px solid #d8b4fe;
+  box-shadow: 0 14px 34px rgba(124, 58, 237, 0.12);
+}
+
+[data-theme="dark"] .flash3d-back {
+  background: #140d28;
+  border-color: #9333ea;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+}
+
+.flash3d-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--border-soft);
+}
+
+.flash3d-term {
+  font-size: clamp(32px, 5.2vw, 48px);
+  margin: 16px 0 8px;
+  color: var(--heading);
+  text-align: center;
+  letter-spacing: -0.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-weight: 900;
+}
+
+.flash3d-illus {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 12px 0;
+  min-height: 96px;
+  animation: organelleFloat 5s ease-in-out infinite;
+}
+
+.flash3d-hint {
+  margin-top: auto;
+  color: var(--muted);
+  font-size: 13.5px;
+  border-top: 1px dashed var(--border-soft);
+  padding-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.flash3d-back-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 4px;
+}
+
+.flash3d-back-title {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 36px);
+  font-weight: 900;
+  color: var(--heading);
+  letter-spacing: -0.5px;
+}
+
+.flash3d-speak-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--ghost-bg);
+  border: 1px solid var(--chip-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.flash3d-speak-btn:hover {
+  background: var(--chip-border);
+  transform: scale(1.06);
+}
+
+.flash3d-sections {
+  overflow-y: auto;
+  font-size: 15px;
+  line-height: 1.7;
+  padding-right: 6px;
+  margin-top: 8px;
+}
+
+.sec-def {
+  margin-bottom: 16px;
+}
+
+.sec-def h4 {
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+[data-theme="dark"] .sec-def h4 {
+  color: #64748b;
+}
+
+.sec-def p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.sec-ctx-box {
+  background: #fdf4ff;
+  border: 1.5px solid #f0abfc;
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-bottom: 14px;
+}
+
+[data-theme="dark"] .sec-ctx-box {
+  background: rgba(88, 28, 135, 0.22);
+  border-color: rgba(192, 132, 252, 0.4);
+}
+
+.sec-ctx-box h4 {
+  margin: 0 0 6px;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #9333ea;
+  letter-spacing: 0.4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+[data-theme="dark"] .sec-ctx-box h4 {
+  color: #d8b4fe;
+}
+
+.sec-ctx-box p {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: var(--ink);
+}
+
+.sec-ctx-box .ex-en {
+  font-style: italic;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.sec-ctx-box .ex-vi {
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.sec-tip-box {
+  background: #fffbeb;
+  border: 1.5px solid #fde68a;
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-bottom: 14px;
+}
+
+[data-theme="dark"] .sec-tip-box {
+  background: rgba(120, 53, 15, 0.25);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.sec-tip-box h4 {
+  margin: 0 0 6px;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #b45309;
+  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+[data-theme="dark"] .sec-tip-box h4 {
+  color: #f59e0b;
+}
+
+.sec-tip-box p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #92400e;
+}
+
+[data-theme="dark"] .sec-tip-box p {
+  color: #fde68a;
+}
+
+.flash3d-bottom-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 640px) {
+  .flash3d-inner {
+    min-height: 480px;
+  }
+  .flash3d-face {
+    padding: 20px 18px;
+  }
+  .flash3d-term {
+    font-size: 28px;
+  }
+  .flash3d-bottom-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+}
+
 .choice-btn {
   display: block;
   width: 100%;

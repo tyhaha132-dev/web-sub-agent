@@ -268,13 +268,13 @@ export function startActivityTracker(): void {
   }, 60000);
 }
 
-export function speak(text: string): void {
+export function speak(text: string, rate = 0.9): void {
   try {
     const synth = window.speechSynthesis;
     synth.cancel();
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = 'en-US';
-    utter.rate = 0.9;
+    utter.rate = rate;
     synth.speak(utter);
   } catch {
     /* trình duyệt không hỗ trợ */

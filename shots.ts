@@ -32,30 +32,11 @@ await page.screenshot({ path: `${OUT}/home-dark.png`, fullPage: true });
 await page.click(".theme-toggle >> nth=0"); // Chuyển lại sáng
 console.log("shot home-dark ok");
 
-// 3. Test interactive 3D demo flashcard pronunciation button
-try {
-  await page.click(".demo-card .speak-btn >> nth=0");
-  await page.waitForTimeout(500);
-  console.log("click 3D demo flashcard speak ok");
-} catch (e) {
-  console.log("demo flashcard speak skip:", e);
-}
-
-// 4. Các routes chính
-for (const route of ["/dictionary", "/flashcards", "/quiz", "/progress", "/toeic", "/folders"]) {
-  await page.goto(BASE + route, { waitUntil: "networkidle", timeout: 30000 });
-  await page.waitForTimeout(800);
-  const name = route.slice(1);
-  await page.screenshot({ path: `${OUT}/${name}.png` });
-  console.log(`shot ${route} ok`);
-}
-
-// 5. Thử đăng ký/đăng nhập tài khoản test
+// 3. Đăng ký tài khoản test để vượt qua AuthGate
 const stamp = String(Date.now()).slice(-5);
 const uname = `shot${stamp}`;
-await page.goto(BASE + "/dictionary", { waitUntil: "networkidle" });
-await page.waitForTimeout(500);
-// Nếu thấy form đăng nhập/đăng ký
+await page.goto(BASE + "/flashcards", { waitUntil: "networkidle" });
+await page.waitForTimeout(600);
 try {
   const regBtn = await page.$("text=📝 Đăng ký");
   if (regBtn) {
@@ -70,6 +51,55 @@ try {
   }
 } catch (e) {
   console.log("auth test note:", e);
+}
+
+// 4. Flashcards 3D Page Test & Screenshots (Khi đã authenticated)
+await page.goto(BASE + "/flashcards", { waitUntil: "networkidle", timeout: 30000 });
+await page.waitForSelector(".flash3d", { timeout: 15000 });
+await page.waitForTimeout(800);
+
+// Chụp mặt trước 3D Flashcard
+await page.screenshot({ path: `${OUT}/flashcards-3d-front.png` });
+await page.screenshot({ path: `${OUT}/flashcards-3d-full.png`, fullPage: true });
+console.log("shot flashcards-3d-front & full ok");
+
+// Thử click lật thẻ sang mặt sau
+try {
+  await page.click(".flash3d");
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: `${OUT}/flashcards-3d-back.png` });
+  console.log("shot flashcards-3d-back ok");
+} catch (e) {
+  console.log("flash3d flip note:", e);
+}
+
+// Chế độ tối trên trang flashcards
+try {
+  await page.click(".theme-toggle >> nth=0");
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: `${OUT}/flashcards-3d-dark.png` });
+  await page.click(".theme-toggle >> nth=0"); // Chuyển lại sáng
+  console.log("shot flashcards-3d-dark ok");
+} catch (e) {
+  console.log("flash3d theme toggle note:", e);
+}
+
+// Thử click nút "Thẻ tiếp theo ›"
+try {
+  await page.click("text=Thẻ tiếp theo ›");
+  await page.waitForTimeout(600);
+  console.log("click next flashcard ok");
+} catch (e) {
+  console.log("flash3d next note:", e);
+}
+
+// 5. Các routes chính khác
+for (const route of ["/dictionary", "/quiz", "/progress", "/toeic", "/folders"]) {
+  await page.goto(BASE + route, { waitUntil: "networkidle", timeout: 30000 });
+  await page.waitForTimeout(800);
+  const name = route.slice(1);
+  await page.screenshot({ path: `${OUT}/${name}.png` });
+  console.log(`shot ${route} ok`);
 }
 
 // 6. Tương tác từ điển & quiz sau login
