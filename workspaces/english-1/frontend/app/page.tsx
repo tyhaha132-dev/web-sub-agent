@@ -101,126 +101,243 @@ export default function LandingPage() {
 
   return (
     <div ref={rootRef} className="landing">
-      {/* 1. HERO SECTION */}
-      <section className="hero-land">
-        <div className="blob b1" />
-        <div className="blob b2" />
-        <div className="blob b3" />
-        <div className="blob b4" />
+      {/* 1. CIRRUS-INSPIRED CLOUDSCAPE HERO SECTION */}
+      <section className="hero-cirrus">
+        {/* Layered Painterly Cumulus Clouds Backdrop */}
+        <div className="cirrus-clouds-layer" aria-hidden="true">
+          {/* Cloud Left */}
+          <svg className="cirrus-cloud-svg cirrus-cloud-left" viewBox="0 0 520 480" fill="none">
+            <defs>
+              <linearGradient id="cloudGradLeft" x1="20%" y1="0%" x2="40%" y2="100%">
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.98" />
+                <stop offset="60%" stopColor="#f0f7fe" stopOpacity="0.94" />
+                <stop offset="100%" stopColor="#b8def7" stopOpacity="0.85" />
+              </linearGradient>
+            </defs>
+            <circle cx="120" cy="240" r="140" fill="url(#cloudGradLeft)" />
+            <circle cx="260" cy="180" r="120" fill="url(#cloudGradLeft)" />
+            <circle cx="340" cy="280" r="130" fill="url(#cloudGradLeft)" />
+            <circle cx="200" cy="320" r="110" fill="url(#cloudGradLeft)" />
+            <circle cx="80" cy="140" r="90" fill="#ffffff" fillOpacity="0.85" />
+            <circle cx="220" cy="110" r="85" fill="#ffffff" fillOpacity="0.9" />
+          </svg>
 
-        {/* Floating micro-particles */}
-        <div className="hero-particle" style={{ width: 12, height: 12, top: '20%', left: '12%', animationDuration: '3.6s' }} />
-        <div className="hero-particle" style={{ width: 8, height: 8, top: '65%', left: '7%', animationDuration: '4.8s' }} />
-        <div className="hero-particle" style={{ width: 14, height: 14, top: '26%', right: '14%', animationDuration: '5.2s' }} />
-        <div className="hero-particle" style={{ width: 10, height: 10, bottom: '22%', right: '9%', animationDuration: '4s' }} />
+          {/* Cloud Right (Towering cumulus like Cirrus) */}
+          <svg className="cirrus-cloud-svg cirrus-cloud-right" viewBox="0 0 660 580" fill="none">
+            <defs>
+              <linearGradient id="cloudGradRight" x1="40%" y1="0%" x2="50%" y2="100%">
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
+                <stop offset="55%" stopColor="#eef6fe" stopOpacity="0.96" />
+                <stop offset="100%" stopColor="#b4daf5" stopOpacity="0.88" />
+              </linearGradient>
+            </defs>
+            <circle cx="480" cy="260" r="170" fill="url(#cloudGradRight)" />
+            <circle cx="320" cy="200" r="150" fill="url(#cloudGradRight)" />
+            <circle cx="190" cy="300" r="130" fill="url(#cloudGradRight)" />
+            <circle cx="380" cy="390" r="160" fill="url(#cloudGradRight)" />
+            <circle cx="230" cy="160" r="105" fill="#ffffff" fillOpacity="0.92" />
+            <circle cx="390" cy="110" r="115" fill="#ffffff" fillOpacity="0.95" />
+            <circle cx="530" cy="150" r="95" fill="#ffffff" fillOpacity="0.88" />
+          </svg>
 
-        <div className="hero-inner">
-          <span className="hero-badge reveal">🏆 CHUẨN QUỐC TẾ • TỪ ĐIỂN • FLASHCARDS 3D • TOEIC READING</span>
-          <h1 className="reveal">
-            EnglishFun<br />
-            <span>Chinh phục tiếng Anh mỗi ngày</span>
+          {/* Floating Drift Cloud 1 */}
+          <svg className="cirrus-cloud-svg cirrus-cloud-wisp-1" viewBox="0 0 260 140" fill="none">
+            <ellipse cx="130" cy="80" rx="100" ry="45" fill="#ffffff" fillOpacity="0.78" />
+            <ellipse cx="90" cy="65" rx="60" ry="35" fill="#ffffff" fillOpacity="0.88" />
+            <ellipse cx="170" cy="70" rx="55" ry="32" fill="#ffffff" fillOpacity="0.82" />
+          </svg>
+
+          {/* Floating Drift Cloud 2 */}
+          <svg className="cirrus-cloud-svg cirrus-cloud-wisp-2" viewBox="0 0 240 120" fill="none">
+            <ellipse cx="120" cy="70" rx="90" ry="38" fill="#ffffff" fillOpacity="0.75" />
+            <ellipse cx="85" cy="55" rx="50" ry="30" fill="#ffffff" fillOpacity="0.85" />
+            <ellipse cx="155" cy="60" rx="48" ry="28" fill="#ffffff" fillOpacity="0.8" />
+          </svg>
+        </div>
+
+        {/* Hero Content */}
+        <div className="cirrus-hero-inner">
+          <h1 className="cirrus-hero-title reveal">
+            Học tiếng Anh thông minh trên một nền tảng bình yên &amp; tinh gọn.
           </h1>
-          <p className="reveal">
-            Hệ thống học từ vựng và phản xạ tiếng Anh toàn diện: Flashcard 3D Spaced Repetition, 515 câu đề thi TOEIC Reading chuẩn thi thật, 7 chế độ luyện phản xạ và theo dõi tiến độ khoa học.
+
+          <p className="cirrus-hero-subtitle reveal">
+            EnglishFun là không gian học tập tĩnh lặng cho người bận rộn. Tra từ điển tức thì, lật Flashcard 3D sống động, luyện phản xạ Quiz và theo dõi tiến độ mỗi ngày — không xao nhãng, không áp lực.
           </p>
-          <div className="reveal" style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link href="/flashcards" className="btn btn-light" style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}>
-              🃏 Khám phá Flashcard 3D
+
+          <div className="cirrus-btn-row reveal">
+            <Link href="/flashcards" className="cirrus-btn-primary">
+              <span style={{ fontSize: 13, marginRight: 2 }}>▷</span> Bắt đầu học ngay
             </Link>
-            <Link href="/toeic" className="btn-outline-light">
-              💼 Luyện TOEIC Reading
+            <Link href="/dictionary" className="cirrus-btn-secondary">
+              <span style={{ fontSize: 14, marginRight: 2 }}>⊙</span> Khám phá tính năng
             </Link>
-            <Link href="/progress" className="btn-outline-light">
-              📊 Xem tiến độ
-            </Link>
-          </div>
-          <div className="hero-stats reveal">
-            <div className="stat">
-              <b><CountUp to={totalWords || 862} suffix="+" /></b>
-              <span>Từ vựng chuẩn</span>
-            </div>
-            <div className="stat">
-              <b><CountUp to={43} suffix=" bộ" /></b>
-              <span>Bộ Flashcards</span>
-            </div>
-            <div className="stat">
-              <b><CountUp to={515} suffix=" câu" /></b>
-              <span>Ngân hàng TOEIC</span>
-            </div>
-            <div className="stat">
-              <b><CountUp to={7} suffix=" chế độ" /></b>
-              <span>Luyện phản xạ</span>
-            </div>
           </div>
         </div>
 
-        {/* 3D Interactive Demo Flashcard */}
-        <div className="demo-wrap reveal">
-          <div className="demo-card">
-            <div className="demo-inner">
-              {/* Mặt trước */}
-              <div className="demo-face demo-front">
-                <span className="demo-category-pill">TỪ VỰNG IELTS / HỌC THUẬT</span>
-                <b style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
-                  Serendipity
-                  <button
-                    type="button"
-                    className="speak-btn"
-                    title="Nghe phát âm chuẩn IPA"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      speak('Serendipity');
-                    }}
-                    style={{ width: 36, height: 36, fontSize: 18 }}
-                  >
-                    🔊
-                  </button>
-                </b>
-                <span className="ipa-chip">/ˌser.ənˈdɪp.ə.ti/</span>
-                <div style={{ margin: '10px 0', fontSize: 44, animation: 'float 3.5s ease-in-out infinite' }}>
-                  ✨🍀
+        {/* Floating App Dashboard Window Mockup */}
+        <div className="cirrus-mockup-frame reveal">
+          {/* Mockup Top Navigation Bar */}
+          <div className="cirrus-mockup-topbar">
+            <div className="mockup-nav-group">
+              <button type="button" className="mockup-pill-tab active">
+                <span>⊞</span> Tổng quan
+              </button>
+              <Link href="/dictionary" className="mockup-pill-tab">
+                <span>🔤</span> Từ điển
+              </Link>
+              <Link href="/flashcards" className="mockup-pill-tab">
+                <span>🃏</span> Flashcard 3D
+              </Link>
+              <Link href="/quiz" className="mockup-pill-tab">
+                <span>🏆</span> Quiz phản xạ
+              </Link>
+              <Link href="/toeic" className="mockup-pill-tab">
+                <span>💼</span> TOEIC ETS
+              </Link>
+            </div>
+
+            <div className="mockup-tools-group">
+              <div className="mockup-search-pill">
+                <span>🔍</span>
+                <span>Tra nhanh 862+ từ vựng...</span>
+              </div>
+              <span style={{ fontSize: 16, cursor: 'pointer', padding: '0 4px' }} title="Thông báo">🔔</span>
+              <span className="mockup-avatar-badge" title="Tài khoản học viên">EF</span>
+            </div>
+          </div>
+
+          {/* Mockup Body Content */}
+          <div className="cirrus-mockup-body">
+            <div className="mockup-title-row">
+              <div>
+                <h3>EnglishFun Workspace</h3>
+                <p>Tín hiệu học tập thực tế từ tất cả chuyên đề bạn đang theo đuổi.</p>
+              </div>
+              <div className="mockup-filter-chips">
+                <span className="mockup-chip">📅 7 ngày</span>
+                <span className="mockup-chip">📤 Xuất dữ liệu</span>
+                <span className="mockup-chip">🔗 Chia sẻ</span>
+              </div>
+            </div>
+
+            <div className="mockup-grid-2col">
+              {/* Left Column: Interactive Study Cards & Reflex Quiz */}
+              <div className="mockup-card-deck">
+                {/* Word 1: Serendipity */}
+                <div className="mockup-word-box">
+                  <div className="mockup-word-header">
+                    <div>
+                      <span className="mockup-word-name">
+                        Serendipity
+                        <button
+                          type="button"
+                          className="mockup-audio-btn"
+                          title="Phát âm chuẩn IPA"
+                          onClick={() => speak('Serendipity')}
+                        >
+                          🔊
+                        </button>
+                      </span>
+                      <div className="mockup-ipa">/ˌser.ənˈdɪp.ə.ti/</div>
+                    </div>
+                    <span className="mockup-tag">IELTS 7.5+ • Academic</span>
+                  </div>
+                  <p className="mockup-def">
+                    Khả năng tình cờ phát hiện ra những điều tốt đẹp, quý giá một cách hoàn toàn tự nhiên và bất ngờ.
+                  </p>
+                  <p className="mockup-ex">
+                    &ldquo;Finding EnglishFun was a lucky stroke of serendipity in my learning journey.&rdquo;
+                  </p>
                 </div>
-                <small style={{ color: '#7c3aed', fontWeight: 800, letterSpacing: 1.2 }}>
-                  Thẻ tương tác 3D • Tự động lật thẻ ⟳
-                </small>
+
+                {/* Word 2: Resilience */}
+                <div className="mockup-word-box">
+                  <div className="mockup-word-header">
+                    <div>
+                      <span className="mockup-word-name">
+                        Resilience
+                        <button
+                          type="button"
+                          className="mockup-audio-btn"
+                          title="Phát âm chuẩn IPA"
+                          onClick={() => speak('Resilience')}
+                        >
+                          🔊
+                        </button>
+                      </span>
+                      <div className="mockup-ipa">/rɪˈzɪl.jəns/</div>
+                    </div>
+                    <span className="mockup-tag" style={{ background: '#ecfdf5', color: '#047857' }}>
+                      TOEIC Core • Workplace
+                    </span>
+                  </div>
+                  <p className="mockup-def">
+                    Khả năng kiên cường phục hồi và bứt phá sau những thử thách khó khăn.
+                  </p>
+                  <p className="mockup-ex">
+                    &ldquo;Consistent daily study builds mental resilience and lasting language fluency.&rdquo;
+                  </p>
+                </div>
+
+                {/* Reflex Quiz mini widget */}
+                <div className="mockup-word-box" style={{ background: 'var(--panel)', border: '1.5px solid var(--border-soft)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: 0.6 }}>
+                      ⚡ Mini Quiz phản xạ
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>20s bấm giờ</span>
+                  </div>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--heading)', marginBottom: 10 }}>
+                    Which word best describes bouncing back quickly from difficulty?
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                    <div style={{ padding: '7px 10px', borderRadius: 8, background: 'var(--ghost-bg)', fontSize: 12.5, fontWeight: 600 }}>
+                      A. Fragility
+                    </div>
+                    <div style={{ padding: '7px 10px', borderRadius: 8, background: '#dcfce7', border: '1px solid #86efac', color: '#166534', fontSize: 12.5, fontWeight: 700 }}>
+                      B. Resilience ✓
+                    </div>
+                    <div style={{ padding: '7px 10px', borderRadius: 8, background: 'var(--ghost-bg)', fontSize: 12.5, fontWeight: 600 }}>
+                      C. Hesitation
+                    </div>
+                    <div style={{ padding: '7px 10px', borderRadius: 8, background: 'var(--ghost-bg)', fontSize: 12.5, fontWeight: 600 }}>
+                      D. Complacency
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* Mặt sau */}
-              <div className="demo-face demo-back" style={{ textAlign: 'left', padding: '24px 22px', overflowY: 'auto' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <h3 style={{ fontSize: 22, margin: 0, color: 'var(--heading)' }}>Sự may mắn bất ngờ</h3>
-                  <button
-                    type="button"
-                    className="speak-btn"
-                    title="Nghe phát âm chuẩn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      speak('Serendipity');
-                    }}
-                    style={{ width: 34, height: 34, fontSize: 16 }}
-                  >
-                    🔊
-                  </button>
+              {/* Right Column: Cirrus-style Chat Speech Bubble & Stats */}
+              <div className="mockup-chat-panel">
+                <div>
+                  <div className="cirrus-bubble">
+                    <div className="cirrus-bubble-meta">🤖 Trợ lý EnglishFun • Vừa xong</div>
+                    <div>Hôm nay bạn đã ôn tập 18 từ vựng, độ nhớ duy trì 92% 🎉</div>
+                  </div>
+
+                  <div className="cirrus-bubble">
+                    <div className="cirrus-bubble-meta">💡 Spaced Repetition Tip</div>
+                    <div>Lặp lại vào ngày 1, 3, 7 để chuyển từ vựng vào trí nhớ dài hạn không bao giờ quên.</div>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div>
-                    <h4 style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase' }}>
-                      Định nghĩa
-                    </h4>
-                    <p style={{ fontSize: 13.5, lineHeight: 1.5, margin: 0 }}>
-                      Khả năng tình cờ phát hiện ra những điều tốt đẹp, quý giá một cách hoàn toàn tự nhiên và bất ngờ.
-                    </p>
+
+                <div className="mockup-stats-chips-row">
+                  <div className="mockup-stat-tile">
+                    <b>🔥 7 ngày</b>
+                    <span>Chuỗi học bền bỉ</span>
                   </div>
-                  <div style={{ background: 'var(--chip-bg)', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--chip-border)' }}>
-                    <h4 style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 800, color: '#7c3aed' }}>
-                      Ví dụ thực tế
-                    </h4>
-                    <p style={{ fontSize: 13, lineHeight: 1.45, margin: 0, fontStyle: 'italic' }}>
-                      &ldquo;Finding EnglishFun was a lucky stroke of serendipity in my learning journey.&rdquo;
-                    </p>
+                  <div className="mockup-stat-tile">
+                    <b><CountUp to={totalWords || 862} suffix="+" /></b>
+                    <span>Từ vựng chuẩn</span>
                   </div>
-                  <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.45 }}>
-                    💡 <b>Mẹo nhớ:</b> Thường gặp trong IELTS Band 7.0+. Đi cùng cụm từ <i>&ldquo;a stroke of serendipity&rdquo;</i>.
+                  <div className="mockup-stat-tile">
+                    <b>94.8%</b>
+                    <span>Độ chính xác Quiz</span>
+                  </div>
+                  <div className="mockup-stat-tile">
+                    <b>45 phút</b>
+                    <span>Trung bình mỗi ngày</span>
                   </div>
                 </div>
               </div>
@@ -229,8 +346,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Marquee vocabulary ribbon */}
-      <div className="marquee" aria-hidden="true">
+      {/* Main Page Content Body */}
+      <div className="landing-body-container">
+        {/* Marquee vocabulary ribbon */}
+        <div className="marquee" aria-hidden="true">
         <div className="marquee-track">
           {[...MARQUEE_WORDS, ...MARQUEE_WORDS].map((word, i) => (
             <span key={i} className="marquee-chip">
@@ -410,6 +529,7 @@ export default function LandingPage() {
           </Link>
         </div>
       </section>
+      </div>
     </div>
   );
 }

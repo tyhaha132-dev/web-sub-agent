@@ -103,16 +103,16 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       <>
         <header className="site-header">
           <div className="header-brand-wrap">
-            <Link className="site-logo" href="/" title="EnglishFun - Luyện tiếng Anh mỗi ngày">
-              <span>📚</span>
+            <Link className="site-logo" href="/" title="EnglishFun - Chinh phục tiếng Anh mỗi ngày">
+              <span className="cirrus-logo-badge">✦</span>
               <span>English<span className="brand-num">Fun</span></span>
               <span className="logo-badge">Pro</span>
             </Link>
           </div>
           <span className="header-spacer" />
           <div className="header-actions">
-            <Link href="/" className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setShowLogin(false)}>
-              🏠 Trang chủ
+            <Link href="/" className="cirrus-signin-link" onClick={() => setShowLogin(false)}>
+              ← Trang chủ
             </Link>
             <ThemeToggle />
           </div>
@@ -144,17 +144,17 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   // 3. Đã đăng nhập hoặc đang xem trang chủ ở chế độ khách
   return (
     <>
-      <header className="site-header">
+      <header className={`site-header ${isHomePage ? 'site-header-home' : ''}`}>
         <div className="header-brand-wrap">
-          <Link className="site-logo" href="/" title="EnglishFun - Luyện tiếng Anh mỗi ngày">
-            <span>📚</span>
+          <Link className="site-logo" href="/" title="EnglishFun - Chinh phục tiếng Anh mỗi ngày">
+            <span className="cirrus-logo-badge">✦</span>
             <span>English<span className="brand-num">Fun</span></span>
             <span className="logo-badge">Pro</span>
           </Link>
         </div>
 
         <nav className="site-nav" aria-label="Điều hướng chính">
-          {links.map(([label, href, icon]) => {
+          {links.map(([label, href]) => {
             const isActive = pathname === href || (href !== '/' && !!pathname?.startsWith(href));
             return (
               <Link
@@ -162,8 +162,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
                 href={href}
                 className={`nav-item ${isActive ? 'active' : ''}`}
               >
-                <span className="nav-icon">{icon}</span>
-                <span className="nav-label">{label}</span>
+                <span>{label}</span>
               </Link>
             );
           })}
@@ -182,7 +181,12 @@ export default function AuthGate({ children }: { children: ReactNode }) {
               <span className="header-user" title={`Tài khoản: ${user}`}>
                 👤 <span className="user-name">{user}</span>
               </span>
-              <Link href="/account" title="Cài đặt tài khoản" style={{ color: '#ffffff', fontSize: 13, fontWeight: 600 }}>
+              <Link
+                href="/account"
+                title="Cài đặt tài khoản"
+                className="cirrus-signin-link"
+                style={{ padding: '4px 8px', fontSize: 14 }}
+              >
                 ⚙️
               </Link>
               <button
@@ -195,14 +199,22 @@ export default function AuthGate({ children }: { children: ReactNode }) {
               </button>
             </>
           ) : (
-            <button
-              type="button"
-              className="btn btn-light"
-              style={{ padding: '6px 16px', fontSize: 13.5, fontWeight: 700 }}
-              onClick={() => setShowLogin(true)}
-            >
-              🔑 Đăng nhập / Đăng ký
-            </button>
+            <>
+              <button
+                type="button"
+                className="cirrus-signin-link"
+                onClick={() => setShowLogin(true)}
+              >
+                Đăng nhập
+              </button>
+              <button
+                type="button"
+                className="cirrus-btn-cta"
+                onClick={() => setShowLogin(true)}
+              >
+                <span>↗ Bắt đầu miễn phí</span>
+              </button>
+            </>
           )}
 
           <ThemeToggle />
@@ -311,7 +323,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      <div className="page">{children}</div>
+      <div className={`page ${isHomePage ? 'page-home-cirrus' : ''}`}>{children}</div>
 
       <footer className="site-footer">
         <div className="footer-inner">
