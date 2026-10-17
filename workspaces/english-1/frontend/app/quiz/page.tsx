@@ -181,8 +181,6 @@ export default function Quiz() {
           <span
             className="category-pill"
             style={{
-              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-              color: '#ffffff',
               display: 'inline-block',
               marginBottom: 8,
             }}

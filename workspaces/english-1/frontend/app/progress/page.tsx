@@ -204,11 +204,11 @@ export default function ProgressPage() {
                     height: `${height}px`,
                     background:
                       day.minutes > 0
-                        ? 'linear-gradient(to top, #7c3aed, #ec4899)'
-                        : 'var(--chip-border)',
+                        ? 'linear-gradient(to top, #0284c7, #38bdf8)'
+                        : 'var(--border-soft)',
                     borderRadius: '4px 4px 0 0',
                     transition: 'height 0.35s ease',
-                    boxShadow: day.minutes > 0 ? '0 0 8px rgba(124, 58, 237, 0.3)' : 'none',
+                    boxShadow: day.minutes > 0 ? '0 2px 8px rgba(56, 189, 248, 0.35)' : 'none',
                     cursor: 'pointer',
                   }}
                   title={`${day.day}: ${day.minutes} phút (${day.attempts} lượt)`}
@@ -251,7 +251,7 @@ export default function ProgressPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14 }}>
                   <span style={{ fontWeight: 700, color: 'var(--heading)' }}>{item.label}</span>
                   <span style={{ color: 'var(--muted)', fontSize: 13 }}>
-                    <b style={{ color: item.accuracy >= 80 ? '#10b981' : item.accuracy >= 50 ? '#8b5cf6' : '#f59e0b' }}>
+                    <b style={{ color: item.accuracy >= 80 ? '#10b981' : item.accuracy >= 50 ? '#0284c7' : '#f59e0b' }}>
                       {item.accuracy}%
                     </b>{' '}
                     ({item.attempts} lượt)
@@ -266,7 +266,7 @@ export default function ProgressPage() {
                         item.accuracy >= 80
                           ? 'linear-gradient(90deg, #10b981, #06b6d4)'
                           : item.accuracy >= 50
-                          ? 'linear-gradient(90deg, #7c3aed, #db2777)'
+                          ? 'linear-gradient(90deg, #0284c7, #38bdf8)'
                           : 'linear-gradient(90deg, #f59e0b, #ef4444)',
                     }}
                   />

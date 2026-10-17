@@ -175,11 +175,13 @@ export default function LoginForm({ onAuth }: { onAuth: (username: string) => vo
       <div
         style={{
           textAlign: 'center',
-          borderRadius: 20,
-          padding: '28px 20px',
-          background: 'linear-gradient(135deg, #7c3aed, #db2777)',
+          borderRadius: 24,
+          padding: '32px 24px',
+          background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+          border: '1px solid #334155',
+          boxShadow: '0 12px 32px -4px rgba(15, 23, 42, 0.2)',
           color: '#fff',
-          marginBottom: 16,
+          marginBottom: 20,
         }}
       >
         <div style={{ fontSize: 44 }}>📚</div>

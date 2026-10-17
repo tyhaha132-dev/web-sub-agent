@@ -329,8 +329,9 @@ export default function AuthGate({ children }: { children: ReactNode }) {
         <div className="footer-inner">
           <div className="footer-brand">
             <div className="footer-logo">
-              <span>📚 English<span className="brand-num" style={{ color: '#fde68a', marginLeft: 2 }}>Fun</span></span>
-              <span className="logo-badge" style={{ marginLeft: 8 }}>Học là nhớ</span>
+              <span className="cirrus-logo-badge" style={{ marginRight: 6 }}>✦</span>
+              <span>English<span className="brand-num" style={{ color: '#38bdf8', marginLeft: 2 }}>Fun</span></span>
+              <span className="logo-badge" style={{ marginLeft: 8 }}>Pro</span>
             </div>
             <p className="footer-desc">
               Nền tảng học tiếng Anh trực quan và toàn diện. Kết hợp Flashcard 3D thông minh, phương pháp Spaced Repetition, luyện đề TOEIC Reading chuẩn thi thật và đấu trường Quiz kịch tính.

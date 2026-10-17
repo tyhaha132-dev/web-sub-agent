@@ -156,7 +156,7 @@ export default function ToeicHome() {
             <div
               key={a.id}
               title={`${a.score}/${a.total} ${a.band}${answered < a.total ? ` (làm ${answered}/${a.total})` : ''}`}
-              style={{ flex: 1, height: `${Math.max(6, pct * 100)}%`, background: 'var(--accent, #7c3aed)', borderRadius: 4 }}
+              style={{ flex: 1, height: `${Math.max(6, pct * 100)}%`, background: 'var(--accent, #0284c7)', borderRadius: 4 }}
             />
           );
         })}

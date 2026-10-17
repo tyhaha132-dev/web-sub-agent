@@ -98,9 +98,9 @@ export function MatchMode({ words }: { words: Word[] }) {
                   fontWeight: 700,
                   cursor: t.matched ? 'default' : 'pointer',
                   border: '2px solid',
-                  borderColor: t.matched ? '#16a34a' : t.open ? '#7c3aed' : '#e9d5ff',
-                  background: t.matched ? '#dcfce7' : t.open ? '#ede9fe' : '#fff',
-                  color: '#1e1b4b',
+                  borderColor: t.matched ? '#16a34a' : t.open ? '#0284c7' : 'var(--border-soft)',
+                  background: t.matched ? '#dcfce7' : t.open ? '#e0f2fe' : 'var(--panel)',
+                  color: 'var(--ink)',
                   minHeight: 70,
                 }}
               >

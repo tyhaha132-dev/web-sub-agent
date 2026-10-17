@@ -372,42 +372,42 @@ export default function LandingPage() {
         </div>
 
         <div className="card-grid">
-          <Link href="/dictionary" className="skill-card sk-blue reveal" style={{ textDecoration: 'none', color: '#fff' }}>
+          <Link href="/dictionary" className="skill-card sk-blue reveal">
             <div className="icon">🔤</div>
             <h3>Từ điển đa nguồn thông minh</h3>
             <p>Tra cứu tức thì nghĩa, phiên âm IPA chuẩn Mỹ, audio phát âm và liên kết tra thêm Oxford & Cambridge.</p>
             <span className="count">Tra từ ngay →</span>
           </Link>
 
-          <Link href="/flashcards" className="skill-card sk-pink reveal" style={{ textDecoration: 'none', color: '#fff' }}>
+          <Link href="/flashcards" className="skill-card sk-pink reveal">
             <div className="icon">🃏</div>
             <h3>Flashcard 3D & Lặp lại ngắt quãng</h3>
             <p>Học theo 43 bộ từ chuẩn hóa, lật thẻ 3D, phân loại từ đã thuộc và tự động ôn lại theo chu kỳ ghi nhớ.</p>
             <span className="count">Luyện Flashcard →</span>
           </Link>
 
-          <Link href="/toeic" className="skill-card sk-teal reveal" style={{ textDecoration: 'none', color: '#fff' }}>
+          <Link href="/toeic" className="skill-card sk-teal reveal">
             <div className="icon">💼</div>
             <h3>Luyện thi TOEIC Reading</h3>
             <p>515 câu hỏi Part 5, 6, 7 chuẩn format ETS, giải thích chi tiết song ngữ Anh-Việt và bảng tra cứu lỗi sai.</p>
             <span className="count">Vào phòng thi →</span>
           </Link>
 
-          <Link href="/quiz" className="skill-card sk-orange reveal" style={{ textDecoration: 'none', color: '#fff' }}>
+          <Link href="/quiz" className="skill-card sk-orange reveal">
             <div className="icon">🏆</div>
             <h3>Đấu trường Quiz 10 câu</h3>
             <p>Trắc nghiệm tốc độ bấm giờ, chấm điểm tự động và lưu lịch sử rèn luyện phản xạ ngôn ngữ.</p>
             <span className="count">Thử sức Quiz →</span>
           </Link>
 
-          <Link href="/flashcards" className="skill-card sk-purple reveal" style={{ textDecoration: 'none', color: '#fff' }}>
+          <Link href="/flashcards" className="skill-card sk-purple reveal">
             <div className="icon">🎮</div>
             <h3>7 chế độ luyện phản xạ</h3>
             <p>Lật thẻ, điền từ khuyết, nghe–chép chính tả, ghép cặp tốc độ và game gõ chữ Card Blast vô tận.</p>
             <span className="count">Khám phá game →</span>
           </Link>
 
-          <Link href="/progress" className="skill-card sk-green reveal" style={{ textDecoration: 'none', color: '#fff' }}>
+          <Link href="/progress" className="skill-card sk-green reveal">
             <div className="icon">📈</div>
             <h3>Bảng tiến độ & Thống kê</h3>
             <p>Theo dõi thời gian hoạt động thực tế 14 ngày, chuỗi streak bền bỉ và biểu đồ tỷ lệ chính xác.</p>
@@ -434,7 +434,6 @@ export default function LandingPage() {
               key={t.topic}
               href={t.href}
               className={`skill-card reveal ${t.cls}`}
-              style={{ textDecoration: 'none', color: '#fff' }}
             >
               <div className="icon">{t.icon}</div>
               <h3>{t.name}</h3>

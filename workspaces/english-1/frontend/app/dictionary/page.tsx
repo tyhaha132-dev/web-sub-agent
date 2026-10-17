@@ -309,7 +309,7 @@ export default function DictionaryPage() {
 
       {/* Kết quả tra cứu mở rộng (External Lookup Card) */}
       {external && (
-        <div className="panel" style={{ marginBottom: 20, border: '2px solid #a855f7' }}>
+        <div className="panel" style={{ marginBottom: 20, border: '1px solid #38bdf8', boxShadow: '0 8px 24px -4px rgba(56, 189, 248, 0.15)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span className="category-pill" style={{ fontSize: 11 }}>
               NGUỒN MỞ RỘNG • {external.provider === 'oxford' ? 'OXFORD LEARNER’S' : 'WIKTIONARY'}
@@ -333,7 +333,7 @@ export default function DictionaryPage() {
           </h3>
 
           {external.phonetic && (
-            <div className="ipa" style={{ color: '#9333ea', fontWeight: 600, fontSize: 15, marginBottom: 12 }}>
+            <div className="ipa" style={{ color: '#0284c7', fontWeight: 600, fontSize: 15, marginBottom: 12 }}>
               /{external.phonetic.replace(/^\/+|\/+$/g, '')}/ — Định nghĩa tiếng Anh
             </div>
           )}
