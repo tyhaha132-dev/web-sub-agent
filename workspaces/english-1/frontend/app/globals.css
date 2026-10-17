@@ -412,15 +412,16 @@ h1, h2, h3, h4, h5, h6 {
 .header-streak {
   background: #fef3c7;
   border: 1px solid #fde68a;
-  border-radius: 999px;
-  padding: 4px 11px;
+  border-radius: 9999px;
+  padding: 5px 12px;
   color: #b45309;
-  font-size: 12.5px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   white-space: nowrap;
+  line-height: 1.4;
 }
 
 [data-theme="dark"] .header-streak {
@@ -433,17 +434,18 @@ h1, h2, h3, h4, h5, h6 {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  border-radius: 999px;
-  padding: 4px 12px;
-  color: #0f172a;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 9999px;
+  padding: 5px 13px;
+  color: var(--heading);
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
   max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.4;
 }
 
 [data-theme="dark"] .header-user {
@@ -452,32 +454,68 @@ h1, h2, h3, h4, h5, h6 {
   color: #f8fafc;
 }
 
+.header-settings-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13.5px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.header-settings-btn:hover {
+  background: var(--surface-3);
+  color: var(--heading);
+  transform: rotate(30deg);
+}
+
+[data-theme="dark"] .header-settings-btn {
+  background: #1e293b;
+  border-color: #334155;
+}
+
 .header-logout {
-  background: transparent;
-  border: 1px solid #cbd5e1;
-  color: #475569;
-  border-radius: 999px;
-  padding: 4px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  color: var(--muted);
+  border-radius: 9999px;
+  padding: 5px 14px;
   cursor: pointer;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
   transition: all 0.2s ease;
-}
-
-[data-theme="dark"] .header-logout {
-  border-color: #475569;
-  color: #cbd5e1;
+  line-height: 1.4;
 }
 
 .header-logout:hover {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #dc2626;
+  transform: translateY(-1px);
+}
+
+[data-theme="dark"] .header-logout {
+  background: #1e293b;
+  border-color: #334155;
+  color: #94a3b8;
 }
 
 [data-theme="dark"] .header-logout:hover {
-  background: #334155;
-  color: #ffffff;
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
 }
 
 /* UIverse.io Galahhad/strong-squid-82 animated theme toggle switch */
@@ -3236,6 +3274,166 @@ h1, h2, h3, h4, h5, h6 {
 .blast-missed-list ul { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
 .blast-missed-list li { background: #131a3d; border: 1px solid #26315e; border-radius: 10px; padding: 8px 14px; }
 .blast-missed-list b { color: #fde68a; }
+
+/* ==========================================================================
+   ACCOUNT SETTINGS & SECURITY (CIRRUS SAAS)
+   ========================================================================== */
+.account-wrapper {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 8px 0 48px;
+}
+
+.account-header-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04);
+}
+
+.account-avatar-circle {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #e0f2fe;
+  border: 1px solid #bae6fd;
+  color: #0284c7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .account-avatar-circle {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
+}
+
+.account-user-meta h2 {
+  margin: 0 0 4px;
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--heading);
+}
+
+.account-user-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #059669;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 9999px;
+  padding: 2px 10px;
+}
+
+[data-theme="dark"] .account-user-badge {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #6ee7b7;
+}
+
+.account-form-card {
+  padding: 28px 26px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 24px;
+  box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.06);
+}
+
+.account-field-label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--heading);
+}
+
+.account-input-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.account-input-wrap input {
+  width: 100%;
+  padding: 12px 16px 12px 42px;
+  border-radius: 14px;
+  border: 1.5px solid var(--border-soft);
+  background: var(--input-bg);
+  color: var(--ink);
+  font-size: 15px;
+  outline: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.02);
+}
+
+.account-input-wrap input:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+}
+
+.account-input-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.account-hint {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+.account-alert-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.account-alert-banner.success {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+
+[data-theme="dark"] .account-alert-banner.success {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #a7f3d0;
+}
+
+.account-alert-banner.error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+[data-theme="dark"] .account-alert-banner.error {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
 
 /* Responsive adjustments */
 @media (max-width: 860px) {

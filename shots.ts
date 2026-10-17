@@ -185,10 +185,23 @@ for (const route of ["/toeic", "/folders"]) {
   console.log(`shot ${route} ok`);
 }
 
-// 9. Quay lại home khi đã đăng nhập
+// 9. Test trang Tài khoản & Đổi mật khẩu (Account Page Cirrus SaaS)
+await page.goto(BASE + "/account", { waitUntil: "networkidle", timeout: 30000 });
+await page.waitForTimeout(800);
+await page.screenshot({ path: `${OUT}/account.png` });
+try {
+  await page.click(".theme-toggle >> nth=0");
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: `${OUT}/account-dark.png` });
+  await page.click(".theme-toggle >> nth=0");
+} catch {}
+console.log("shot account & account-dark ok");
+
+// 10. Quay lại home khi đã đăng nhập (kiểm tra streak, accuracy, real progress stats, logout button)
 await page.goto(BASE + "/", { waitUntil: "networkidle" });
-await page.waitForTimeout(1000);
+await page.waitForTimeout(1200);
 await page.screenshot({ path: `${OUT}/home-authenticated.png` });
+await page.screenshot({ path: `${OUT}/home-authenticated-full.png`, fullPage: true });
 console.log("shot home-authenticated ok");
 
 console.log("PAGE ERRORS:", errors.length === 0 ? "none" : errors);

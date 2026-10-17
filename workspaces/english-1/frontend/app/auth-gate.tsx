@@ -5,9 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import ThemeToggle from './theme-toggle';
 import LoginForm from './login-form';
-import { fetchMe, getToken, logout } from '../lib/auth';
-import { authFetch } from '../lib/auth';
-import { startActivityTracker } from '../lib/api';
+import { fetchMe, getToken, logout, authFetch } from '../lib/auth';
+import { startActivityTracker, calculateStreak } from '../lib/api';
 
 const links = [
   ['Trang chủ', '/', '🏠'],
@@ -19,24 +18,6 @@ const links = [
   ['Xếp hạng', '/leaderboard', '🥇'],
   ['Thư mục', '/folders', '📁'],
 ] as const;
-
-function calculateStreak(daily: { day: string; minutes: number }[]): number {
-  if (!daily || daily.length === 0) return 0;
-  const sorted = [...daily].filter((d) => d.minutes > 0).map((d) => d.day).sort().reverse();
-  if (sorted.length === 0) return 0;
-  const today = new Date().toISOString().slice(0, 10);
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-  if (sorted[0] !== today && sorted[0] !== yesterday) return 0;
-  let streak = 1;
-  for (let i = 0; i < sorted.length - 1; i++) {
-    const cur = new Date(sorted[i]).getTime();
-    const prev = new Date(sorted[i + 1]).getTime();
-    const diffDays = Math.round((cur - prev) / 86400000);
-    if (diffDays === 1) streak++;
-    else if (diffDays > 1) break;
-  }
-  return streak;
-}
 
 export default function AuthGate({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<string | null>(null);
@@ -106,7 +87,6 @@ export default function AuthGate({ children }: { children: ReactNode }) {
             <Link className="site-logo" href="/" title="EnglishFun - Chinh phục tiếng Anh mỗi ngày">
               <span className="cirrus-logo-badge">✦</span>
               <span>English<span className="brand-num">Fun</span></span>
-              <span className="logo-badge">Pro</span>
             </Link>
           </div>
           <span className="header-spacer" />
@@ -149,7 +129,6 @@ export default function AuthGate({ children }: { children: ReactNode }) {
           <Link className="site-logo" href="/" title="EnglishFun - Chinh phục tiếng Anh mỗi ngày">
             <span className="cirrus-logo-badge">✦</span>
             <span>English<span className="brand-num">Fun</span></span>
-            <span className="logo-badge">Pro</span>
           </Link>
         </div>
 
@@ -184,8 +163,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
               <Link
                 href="/account"
                 title="Cài đặt tài khoản"
-                className="cirrus-signin-link"
-                style={{ padding: '4px 8px', fontSize: 14 }}
+                className="header-settings-btn"
               >
                 ⚙️
               </Link>
@@ -195,7 +173,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
                 onClick={() => void doLogout()}
                 title="Đăng xuất khỏi tài khoản"
               >
-                Đăng xuất
+                <span>Đăng xuất</span>
               </button>
             </>
           ) : (
@@ -331,7 +309,6 @@ export default function AuthGate({ children }: { children: ReactNode }) {
             <div className="footer-logo">
               <span className="cirrus-logo-badge" style={{ marginRight: 6 }}>✦</span>
               <span>English<span className="brand-num" style={{ color: '#38bdf8', marginLeft: 2 }}>Fun</span></span>
-              <span className="logo-badge" style={{ marginLeft: 8 }}>Pro</span>
             </div>
             <p className="footer-desc">
               Nền tảng học tiếng Anh trực quan và toàn diện. Kết hợp Flashcard 3D thông minh, phương pháp Spaced Repetition, luyện đề TOEIC Reading chuẩn thi thật và đấu trường Quiz kịch tính.

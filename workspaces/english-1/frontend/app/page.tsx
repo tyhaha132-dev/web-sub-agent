@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { wakeBackend, speak, fetchTopics, type Topic } from '../lib/api';
+import { wakeBackend, speak, fetchTopics, calculateStreak, type Topic } from '../lib/api';
 import { authFetch, getToken } from '../lib/auth';
 
 function useReveal() {
@@ -82,11 +82,17 @@ const DEFAULT_TOPICS = [
 export default function LandingPage() {
   const [totalWords, setTotalWords] = useState(862);
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [userStats, setUserStats] = useState<{
+    streak: number;
+    accuracy: number;
+    avgMinutes: string;
+    hasData: boolean;
+  } | null>(null);
   const rootRef = useReveal();
 
   useEffect(() => {
     wakeBackend();
-    if (!getToken()) return;
+
     authFetch('/api/words?limit=1')
       .then((r) => r.json())
       .then((d: { total?: number }) => {
@@ -97,6 +103,25 @@ export default function LandingPage() {
     fetchTopics()
       .then((ts) => ts && ts.length > 0 && setTopics(ts))
       .catch(() => {});
+
+    if (getToken()) {
+      authFetch('/api/progress')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { attempts?: number; avg_rate?: number; total_minutes?: number; daily?: { day: string; minutes: number }[] } | null) => {
+          if (!d) return;
+          const streak = calculateStreak(d.daily ?? []);
+          const accuracy = Math.round((d.avg_rate ?? 0) * 100);
+          const days = d.daily && d.daily.length > 0 ? 14 : 1;
+          const avgMinutes = ((d.total_minutes ?? 0) / days).toFixed(1);
+          setUserStats({
+            streak,
+            accuracy,
+            avgMinutes: avgMinutes.endsWith('.0') ? avgMinutes.slice(0, -2) : avgMinutes,
+            hasData: (d.attempts ?? 0) > 0 || (d.total_minutes ?? 0) > 0,
+          });
+        })
+        .catch(() => {});
+    }
   }, []);
 
   return (
@@ -215,9 +240,7 @@ export default function LandingPage() {
                 <p>Tín hiệu học tập thực tế từ tất cả chuyên đề bạn đang theo đuổi.</p>
               </div>
               <div className="mockup-filter-chips">
-                <span className="mockup-chip">📅 7 ngày</span>
-                <span className="mockup-chip">📤 Xuất dữ liệu</span>
-                <span className="mockup-chip">🔗 Chia sẻ</span>
+                <span className="mockup-chip">📅 14 ngày gần nhất</span>
               </div>
             </div>
 
@@ -324,7 +347,7 @@ export default function LandingPage() {
 
                 <div className="mockup-stats-chips-row">
                   <div className="mockup-stat-tile">
-                    <b>🔥 7 ngày</b>
+                    <b>🔥 {userStats ? `${userStats.streak} ngày` : '0 ngày'}</b>
                     <span>Chuỗi học bền bỉ</span>
                   </div>
                   <div className="mockup-stat-tile">
@@ -332,11 +355,11 @@ export default function LandingPage() {
                     <span>Từ vựng chuẩn</span>
                   </div>
                   <div className="mockup-stat-tile">
-                    <b>94.8%</b>
+                    <b>{userStats && userStats.hasData ? `${userStats.accuracy}%` : '0%'}</b>
                     <span>Độ chính xác Quiz</span>
                   </div>
                   <div className="mockup-stat-tile">
-                    <b>45 phút</b>
+                    <b>{userStats && userStats.hasData ? `${userStats.avgMinutes} phút` : '0 phút'}</b>
                     <span>Trung bình mỗi ngày</span>
                   </div>
                 </div>
