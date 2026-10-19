@@ -52,6 +52,53 @@ const MAIN_PARTS = [
   },
 ];
 
+const TOEIC_TOOLS = [
+  {
+    href: '/toeic/grammar',
+    icon: '📐',
+    title: 'Chuyên đề Ngữ pháp',
+    badge: '8 dạng cốt lõi',
+    desc: 'Học nhanh quy tắc 30s các thì động từ, giới từ, liên từ, câu điều kiện, thể bị động,... và luyện đề lọc theo từng dạng.',
+    action: 'Ôn quy tắc & luyện đề →',
+    badgeBg: '#f5f3ff',
+    badgeBorder: '#ddd6fe',
+    badgeColor: '#7c3aed',
+  },
+  {
+    href: '/toeic/vocabulary',
+    icon: '🗂️',
+    title: 'Từ vựng TOEIC SRS',
+    badge: 'Giãn cách SM-2',
+    desc: 'Luyện phản xạ từ vựng công sở thông minh: thuật toán tự động ưu tiên từ mới và từ đến hạn cần ôn tập.',
+    action: 'Vào ôn từ vựng →',
+    badgeBg: '#ecfeff',
+    badgeBorder: '#a5f3fc',
+    badgeColor: '#0891b2',
+  },
+  {
+    href: '/toeic/speed',
+    icon: '⚡',
+    title: 'Luyện đọc nhanh',
+    badge: 'Đo WPM thực tế',
+    desc: 'Rèn tốc độ đọc quét văn bản kinh doanh dưới áp lực thời gian, đo số từ/phút (WPM) và trả lời câu hỏi đọc hiểu.',
+    action: 'Đo tốc độ đọc →',
+    badgeBg: '#fffbeb',
+    badgeBorder: '#fde68a',
+    badgeColor: '#d97706',
+  },
+  {
+    href: '/toeic/errors',
+    icon: '🧾',
+    title: 'Sổ tay lỗi sai',
+    badge: 'Phân tích điểm yếu',
+    desc: 'Thống kê tự động các câu bạn làm sai theo từng tag ngữ pháp, giúp tập trung sửa dứt điểm các lỗ hổng kiến thức.',
+    action: 'Xem nhật ký câu sai →',
+    badgeBg: '#fef2f2',
+    badgeBorder: '#fecaca',
+    badgeColor: '#dc2626',
+  },
+];
+
 function WeekChecklist({ level }: { level: string }) {
   const tasks = WEEKLY_TASKS[level] ?? [];
   const [done, setDone] = useState<number[]>(() => loadWeekDone(level));
@@ -315,6 +362,76 @@ export default function ToeicHome() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* TOEIC Tools & Grammar */}
+      <div style={{ marginBottom: 36 }}>
+        <h2 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span>🧭</span> Chuyên đề Ngữ pháp &amp; Công cụ bổ trợ
+        </h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 20 }}>
+          {TOEIC_TOOLS.map((t) => (
+            <div
+              key={t.href}
+              style={{
+                background: 'var(--panel)',
+                border: '1px solid var(--border-soft)',
+                borderRadius: 20,
+                padding: '22px',
+                boxShadow: 'var(--card-shadow)',
+                display: 'flex',
+                flexDirection: 'column',
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <span style={{ fontSize: 28 }}>{t.icon}</span>
+                <span
+                  style={{
+                    padding: '3px 10px',
+                    borderRadius: 9999,
+                    background: t.badgeBg,
+                    border: `1px solid ${t.badgeBorder}`,
+                    color: t.badgeColor,
+                    fontSize: 11.5,
+                    fontWeight: 700,
+                  }}
+                >
+                  {t.badge}
+                </span>
+              </div>
+
+              <h3 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 8px', color: 'var(--heading)' }}>
+                {t.title}
+              </h3>
+              <p style={{ color: 'var(--muted)', fontSize: 13.5, margin: '0 0 18px', lineHeight: 1.5, flex: 1 }}>
+                {t.desc}
+              </p>
+
+              <div>
+                <Link
+                  href={t.href}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '100%',
+                    padding: '9px 16px',
+                    borderRadius: 9999,
+                    background: 'var(--surface-2)',
+                    color: 'var(--ink)',
+                    border: '1px solid var(--border-soft)',
+                    fontWeight: 600,
+                    fontSize: 13,
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {t.action}
+                </Link>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Quỹ đạo điểm số & Streak */}
