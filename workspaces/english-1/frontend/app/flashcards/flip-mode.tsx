@@ -94,6 +94,41 @@ export function FlipMode({ words, onKnown, deckName = 'Flashcards', speed = 1 }:
     });
   }, [cur, onKnown]);
 
+  const rateSRS = useCallback((quality: number) => {
+    if (!cur) return;
+    try {
+      const raw = localStorage.getItem('englishfun_srs_records');
+      const records = raw ? JSON.parse(raw) : {};
+      const key = cur.en.toLowerCase();
+      const prev = records[key];
+
+      let rep = prev?.repetition ?? 0;
+      let interval = prev?.interval ?? 1;
+      let ef = prev?.easeFactor ?? 2.5;
+
+      if (quality < 2) {
+        rep = 0;
+        interval = 1;
+      } else {
+        if (rep === 0) interval = 1;
+        else if (rep === 1) interval = 3;
+        else interval = Math.round(interval * ef);
+        rep += 1;
+      }
+
+      ef = Math.max(1.3, ef + (0.1 - (4 - quality) * (0.08 + (4 - quality) * 0.02)));
+      const due = new Date(Date.now() + interval * 86400000).toISOString().slice(0, 10);
+      records[key] = { repetition: rep, interval, easeFactor: Number(ef.toFixed(2)), dueDate: due };
+      localStorage.setItem('englishfun_srs_records', JSON.stringify(records));
+
+      if (quality >= 3) {
+        setLearnedSet((prevSet) => new Set([...prevSet, cur.en]));
+        onKnown?.(cur.en);
+      }
+    } catch {}
+    nextCard();
+  }, [cur, nextCard, onKnown]);
+
   // Phím tắt bàn phím: Space (lật), ArrowLeft/ArrowRight (chuyển), P (phát âm)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -278,6 +313,98 @@ export function FlipMode({ words, onKnown, deckName = 'Flashcards', speed = 1 }:
           </div>
         </div>
       </div>
+
+      {/* Đánh giá ghi nhớ Spaced Repetition (SRS SM-2) khi lật mặt sau */}
+      {flipped && (
+        <div
+          style={{
+            display: 'flex',
+            gap: 8,
+            justifyContent: 'center',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            margin: '16px auto 8px',
+            maxWidth: 640,
+            background: 'var(--panel)',
+            border: '1px solid var(--border-soft)',
+            borderRadius: 16,
+            padding: '12px 16px',
+            boxShadow: 'var(--card-shadow)',
+          }}
+        >
+          <span style={{ width: '100%', textAlign: 'center', fontSize: 12.5, color: 'var(--muted)', fontWeight: 600 }}>
+            🧠 ĐÁNH GIÁ MỨC ĐỘ GHI NHỚ (THUẬT TOÁN SRS SM-2):
+          </span>
+          <button
+            type="button"
+            onClick={() => rateSRS(1)}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 9999,
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              color: '#dc2626',
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+            title="Quên từ này, cần ôn lại ngay"
+          >
+            🔴 Quên (Học lại)
+          </button>
+          <button
+            type="button"
+            onClick={() => rateSRS(2)}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 9999,
+              background: '#fffbeb',
+              border: '1px solid #fde68a',
+              color: '#d97706',
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+            title="Nhớ mang máng, cần ôn lại sau 1 ngày"
+          >
+            🟠 Khó (1 ngày)
+          </button>
+          <button
+            type="button"
+            onClick={() => rateSRS(3)}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 9999,
+              background: '#eff6ff',
+              border: '1px solid #bae6fd',
+              color: '#0284c7',
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+            title="Nhớ tốt, ôn lại sau 3 ngày"
+          >
+            🔵 Nhớ tốt (3 ngày)
+          </button>
+          <button
+            type="button"
+            onClick={() => rateSRS(4)}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 9999,
+              background: '#ecfdf5',
+              border: '1px solid #a7f3d0',
+              color: '#059669',
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+            title="Rất quen thuộc, ôn lại sau 6 ngày"
+          >
+            🟢 Rất dễ (6 ngày)
+          </button>
+        </div>
+      )}
 
       {/* Các nút điều khiển dưới thẻ */}
       <div className="flash3d-bottom-actions">

@@ -16,7 +16,7 @@ import { ListenMode } from './listen-mode';
 import { MatchMode } from './match-mode';
 
 type Mode = 'flip' | 'write' | 'listen' | 'match' | 'blast';
-type Filter = 'all' | 'unlearned' | 'learned';
+type Filter = 'all' | 'unlearned' | 'learned' | 'srs_due';
 
 const TABS: Array<{ id: Mode; label: string }> = [
   { id: 'flip', label: '🃏 Lật thẻ 3D' },
@@ -113,6 +113,19 @@ export default function Flashcards() {
   const filteredWords = useMemo(() => {
     if (filter === 'learned') return deckWords.filter((w) => knownWords.has(w.en));
     if (filter === 'unlearned') return deckWords.filter((w) => !knownWords.has(w.en));
+    if (filter === 'srs_due') {
+      try {
+        const raw = localStorage.getItem('englishfun_srs_records');
+        const records = raw ? JSON.parse(raw) : {};
+        const today = new Date().toISOString().slice(0, 10);
+        return deckWords.filter((w) => {
+          const rec = records[w.en.toLowerCase()];
+          return !rec || rec.dueDate <= today;
+        });
+      } catch {
+        return deckWords;
+      }
+    }
     return deckWords;
   }, [deckWords, filter, knownWords]);
 
@@ -203,6 +216,7 @@ export default function Flashcards() {
             <option value="all">Tất cả từ ({deckWords.length})</option>
             <option value="unlearned">Chưa thuộc ({unlearnedCount})</option>
             <option value="learned">Đã thuộc ({learnedCount} ⭐)</option>
+            <option value="srs_due">Đến hạn ôn tập (SRS 🧠)</option>
           </select>
 
           {/* 3. Tốc độ đọc */}

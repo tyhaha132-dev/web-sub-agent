@@ -18,6 +18,7 @@ import {
 } from '../../lib/api';
 import EnglishIllustration from '../english-illustration';
 import ExtLinks from '../ext-links';
+import { exportWordsToExcel, makeFolder, putFolder } from '../../lib/folders';
 
 type StatusFilter = 'all' | 'bookmarked';
 
@@ -68,18 +69,76 @@ export default function DictionaryPage() {
   const [external, setExternal] = useState<ExternalEntry | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [bookmarkedSet, setBookmarkedSet] = useState<Set<string>>(() => new Set());
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [folderCreatedMsg, setFolderCreatedMsg] = useState('');
 
-  // Đọc danh sách đã bookmark từ localStorage
+  // Đọc danh sách đã bookmark và recent searches từ localStorage
   useEffect(() => {
     try {
       const raw = localStorage.getItem('englishfun_bookmarked_words');
       if (raw) {
         setBookmarkedSet(new Set(JSON.parse(raw)));
       }
+      const rawRecent = localStorage.getItem('englishfun_recent_searches');
+      if (rawRecent) {
+        setRecentSearches(JSON.parse(rawRecent));
+      }
     } catch {
       // bỏ qua lỗi storage
     }
   }, []);
+
+  function addRecentSearch(word: string) {
+    const clean = word.trim().toLowerCase();
+    if (!clean) return;
+    setRecentSearches((prev) => {
+      const next = [clean, ...prev.filter((x) => x !== clean)].slice(0, 8);
+      try {
+        localStorage.setItem('englishfun_recent_searches', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }
+
+  function clearRecentSearches() {
+    setRecentSearches([]);
+    try {
+      localStorage.removeItem('englishfun_recent_searches');
+    } catch {}
+  }
+
+  // Xuất file Excel từ danh sách bookmark
+  function handleExportBookmarks() {
+    const list = results.filter((w) => bookmarkedSet.has(w.en));
+    if (list.length === 0) {
+      alert('Chưa có từ nào được đánh dấu (bookmark) để xuất file!');
+      return;
+    }
+    exportWordsToExcel(list, `tu-vung-danh-dau-englishfun`);
+  }
+
+  // Chuyển toàn bộ từ đã bookmark thành một thư mục mới
+  async function handleCreateFolderFromBookmarks() {
+    const list = results.filter((w) => bookmarkedSet.has(w.en));
+    if (list.length === 0) {
+      alert('Chưa có từ nào được đánh dấu (bookmark) để tạo thư mục!');
+      return;
+    }
+    const entries = list.map((w) => ({
+      en: w.en,
+      vi: w.vi,
+      ipa: w.ipa,
+      example: w.example,
+    }));
+    const newFolder = makeFolder(`Từ đã lưu (${list.length})`, entries);
+    try {
+      await putFolder(newFolder);
+      setFolderCreatedMsg(`✅ Đã tạo thư mục "${newFolder.name}" thành công! Mở mục "Thư mục" để học nhé.`);
+      setTimeout(() => setFolderCreatedMsg(''), 5000);
+    } catch {
+      alert('Không thể tạo thư mục. Vui lòng kiểm tra đăng nhập hoặc thử lại sau!');
+    }
+  }
 
   function toggleBookmark(en: string) {
     setBookmarkedSet((prev) => {
@@ -141,6 +200,7 @@ export default function DictionaryPage() {
 
       const w = await searchWords(trimmed, currentTopic);
       setResults(w);
+      addRecentSearch(trimmed);
 
       // Nếu không thấy trong DB và là 1 từ đơn, thử tra cứu mở rộng Wiktionary / Oxford
       if (w.length === 0 && SINGLE_WORD_RE.test(trimmed)) {
@@ -244,6 +304,50 @@ export default function DictionaryPage() {
           </button>
         </form>
 
+        {/* Hàng Lịch sử tra cứu gần đây (Recent Searches) */}
+        {recentSearches.length > 0 && (
+          <div className="recent-searches-box">
+            <span style={{ fontWeight: 600, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              🕒 Gần đây:
+            </span>
+            {recentSearches.map((term) => (
+              <button
+                key={term}
+                type="button"
+                className="recent-pill"
+                onClick={() => {
+                  setQ(term);
+                  void handleSearch(term, topic);
+                }}
+              >
+                {term}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={clearRecentSearches}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--muted)',
+                cursor: 'pointer',
+                fontSize: 12,
+                marginLeft: 4,
+                textDecoration: 'underline',
+              }}
+            >
+              ✕ Xóa
+            </button>
+          </div>
+        )}
+
+        {/* Thông báo tạo thư mục thành công */}
+        {folderCreatedMsg && (
+          <div className="account-alert-banner success" style={{ margin: '12px 0 0' }}>
+            {folderCreatedMsg}
+          </div>
+        )}
+
         {/* Thanh chọn chuyên đề, bộ lọc đánh dấu và thống kê số lượng */}
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 14, paddingTop: 14, borderTop: '1px dashed var(--border-soft)' }}>
           <select
@@ -269,6 +373,51 @@ export default function DictionaryPage() {
             <option value="all">Tất cả từ vựng</option>
             <option value="bookmarked">Đã đánh dấu (🔖 {bookmarkedSet.size})</option>
           </select>
+
+          {bookmarkedSet.size > 0 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={handleExportBookmarks}
+                title="Xuất các từ đã bookmark ra file Excel (.xlsx)"
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: 9999,
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--border-soft)',
+                  color: 'var(--ink)',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+              >
+                <span>📥</span> Xuất Excel ({bookmarkedSet.size})
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCreateFolderFromBookmarks()}
+                title="Tạo 1 thư mục học tập mới từ danh sách từ đã bookmark"
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: 9999,
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--border-soft)',
+                  color: '#0284c7',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+              >
+                <span>📁</span> Tạo thư mục
+              </button>
+            </div>
+          )}
 
           <span style={{ flex: 1 }} />
 

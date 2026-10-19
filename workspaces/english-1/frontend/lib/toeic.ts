@@ -43,6 +43,7 @@ export interface ToeicAttempt {
   kind: string;
   band: string;
   meta?: string;
+  part?: number;
   errors?: ToeicError[];
   created_at: string;
 }
@@ -163,7 +164,8 @@ export function avgSecondsPerQ(attempts: ToeicAttempt[]): number | null {
   return qs === 0 ? null : Math.round(secs / qs);
 }
 
-export function formatPassage(p: string): string {
+export function formatPassage(p: string | null | undefined): string {
+  if (!p) return '';
   return p.replace(/\\n/g, '\n');
 }
 

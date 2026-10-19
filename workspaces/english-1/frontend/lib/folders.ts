@@ -1,5 +1,6 @@
 import { lookupWord, type QuizQuestion, type Word } from './api';
 import { authFetch } from './auth';
+import * as XLSX from 'xlsx';
 
 export type WordStatus = 'new' | 'learning' | 'known';
 
@@ -313,3 +314,38 @@ export function buildFolderQuiz(words: FolderWord[], count = 10): QuizQuestion[]
 export function knownCount(f: Folder): number {
   return f.words.filter((w) => f.status[w.en.toLowerCase()] === 'known').length;
 }
+
+export function exportWordsToExcel(
+  words: Array<{ en: string; vi: string; ipa?: string; example?: string }>,
+  baseName: string,
+): void {
+  try {
+    const data = words.map((w, idx) => ({
+      'STT': idx + 1,
+      'Từ tiếng Anh': w.en,
+      'Phiên âm (IPA)': w.ipa || '',
+      'Nghĩa tiếng Việt': w.vi || '',
+      'Câu ví dụ': w.example || '',
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    worksheet['!cols'] = [
+      { wch: 6 },
+      { wch: 22 },
+      { wch: 18 },
+      { wch: 30 },
+      { wch: 45 },
+    ];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Từ vựng');
+    const clean = (baseName || 'tu-vung').replace(/[^a-zA-Z0-9_\-\u00C0-\u024F\u1E00-\u1EFF]/g, '_');
+    XLSX.writeFile(workbook, `${clean}.xlsx`);
+  } catch (err) {
+    console.error('Lỗi khi xuất file Excel:', err);
+    alert('Không thể tạo file Excel. Vui lòng thử lại!');
+  }
+}
+
+export function exportFolderToExcel(folder: Folder): void {
+  exportWordsToExcel(folder.words, folder.name || 'thu-muc-tu-vung');
+}
+
