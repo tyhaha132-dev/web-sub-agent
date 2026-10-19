@@ -5,14 +5,14 @@
 1. Mọi chức năng mới/sửa đổi hành vi phải làm trên **branch mới**, KHÔNG sửa trực tiếp nhánh chính (`main`/`master`).
 2. Đặt tên branch rõ ràng theo chức năng, ví dụ: `feature/dictionary-search`, `fix/footer-layout`.
 3. Trên branch: hiện thực → `typecheck` + `test` pass → chạy thử thực tế (pipeline `COMPLETED`, chụp màn hình nếu là UI).
-4. Chỉ **merge vào nhánh chính khi chức năng đã được xác minh hoạt động**. Nếu lỗi, sửa trên branch hoặc bỏ branch.
+4. Chỉ **merge vào nhánh chính KHI CÓ SỰ CHO PHÉP CỦA USER** sau khi đã nghiệm thu trên feature branch. Tuyệt đối không tự ý merge hay push vào `main` khi user chưa xác nhận đồng ý.
 5. Sau merge: chạy lại `npm run check` trên nhánh chính để xác nhận.
 
 ## Local trước, GitHub sau
 
-- Mọi tính năng đều phải **phát triển và chạy ổn ở local trước**, rồi mới `push` lên GitHub.
-- Trình tự bắt buộc: code local → `npm run check` xanh → chạy thử local (web mở được, API 200, screenshot không lỗi) → merge `main` → push (Render/Vercel tự deploy theo).
-- Không push code chưa chạy qua ở local để "deploy thử" — deploy chỉ dùng để phát hành bản đã ổn.
+- Mọi tính năng đều phải **phát triển và chạy ổn ở local trên branch trước**, rồi mới xin phép merge và `push` lên GitHub.
+- Trình tự bắt buộc: code trên branch → `npm run check` xanh → chạy thử local (web mở được, API 200, test UI) → **báo user test và đợi user cho phép** → merge `main` → push (khi user yêu cầu).
+- Không tự ý merge hay push code khi chưa có sự xác nhận từ user.
 
 ## Các nguyên tắc khác
 
