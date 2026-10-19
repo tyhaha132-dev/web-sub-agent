@@ -330,6 +330,34 @@ export default function ProgressPage() {
         )}
       </div>
 
+      {/* Huy hiệu & Thành tích */}
+      <div
+        className="panel"
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+          padding: '18px 24px',
+          marginBottom: 16,
+          background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(234, 88, 12, 0.04))',
+          border: '1px solid rgba(245, 158, 11, 0.25)',
+        }}
+      >
+        <div>
+          <h4 style={{ margin: '0 0 4px', fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>🎖️</span> Huy hiệu &amp; Thành tích cá nhân
+          </h4>
+          <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13.5 }}>
+            Khám phá 6 huy hiệu thành tích độc quyền dựa trên số lượt làm bài, chuỗi ngày streak và độ chính xác của bạn.
+          </p>
+        </div>
+        <Link href="/account" className="btn btn-secondary" style={{ padding: '10px 20px', fontSize: 14 }}>
+          Xem huy hiệu của tôi ›
+        </Link>
+      </div>
+
       {/* Điều hướng Bảng xếp hạng */}
       <div
         className="panel"

@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import {
   buildFolderQuiz,
   enrichMissing,
+  exportFolderToExcel,
   fetchFolders,
   knownCount,
   putFolder,
@@ -28,6 +30,7 @@ export default function FolderDetail({ params }: { params: { id: string } }) {
   const [missing, setMissing] = useState(false);
   const [tab, setTab] = useState<Tab>('words');
   const [showAppend, setShowAppend] = useState(false);
+  const [searchWord, setSearchWord] = useState('');
 
   useEffect(() => {
     fetchFolders()
@@ -103,6 +106,7 @@ export default function FolderDetail({ params }: { params: { id: string } }) {
     persist({ ...folder, words: [...folder.words, ...fresh] });
     setShowAppend(false);
   }
+
   function removeWord(wordId: number) {
     if (!folder) return;
     persist({ ...folder, words: folder.words.filter((w) => w.id !== wordId) });
@@ -119,6 +123,7 @@ export default function FolderDetail({ params }: { params: { id: string } }) {
       },
     });
   }
+
   function markKnown(en: string) {
     if (!folder) return;
     const key = en.toLowerCase();
@@ -147,94 +152,352 @@ export default function FolderDetail({ params }: { params: { id: string } }) {
 
   if (missing) {
     return (
-      <main>
-        <h1>📁 Thư mục</h1>
-        <div className="panel">😢 Không tìm thấy thư mục (có thể đã xóa hoặc đổi máy). <a href="/folders">Về danh sách</a></div>
+      <main className="page" style={{ maxWidth: 880, margin: '0 auto', textAlign: 'center', padding: '60px 16px' }}>
+        <div style={{ fontSize: 48, marginBottom: 12 }}>😢</div>
+        <h2>Không tìm thấy thư mục</h2>
+        <p style={{ color: 'var(--muted)', marginBottom: 20 }}>Thư mục này có thể đã bị xóa hoặc không thuộc tài khoản hiện tại.</p>
+        <Link
+          href="/folders"
+          style={{
+            padding: '10px 22px',
+            borderRadius: 9999,
+            background: '#0f172a',
+            color: '#fff',
+            fontWeight: 600,
+            display: 'inline-block',
+          }}
+        >
+          ← Quay lại danh sách thư mục
+        </Link>
       </main>
     );
   }
+
   if (!folder) {
     return (
-      <main>
-        <h1>📁 Thư mục</h1>
-        <div className="panel">⏳ Đang tải...</div>
+      <main className="page" style={{ maxWidth: 880, margin: '0 auto', textAlign: 'center', padding: '60px 16px', color: 'var(--muted)' }}>
+        <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
+        <div>Đang tải nội dung thư mục...</div>
       </main>
     );
   }
 
   const known = knownCount(folder);
+  const rate = folder.words.length === 0 ? 0 : Math.round((known / folder.words.length) * 100);
   const folderWords = folder.words.map((w) => ({ ...toWord(w), topic: folder.name }));
 
+  const filteredWords = folder.words.filter((w) => {
+    if (!searchWord.trim()) return true;
+    const s = searchWord.toLowerCase().trim();
+    return w.en.toLowerCase().includes(s) || (w.vi && w.vi.toLowerCase().includes(s));
+  });
+
   return (
-    <main>
-      <p><a href="/folders">← Thư mục của bạn</a></p>
-      <h1>📁 {folder.name}</h1>
-      <div className="panel">
-        <div>{folder.words.length} từ · Đã nhớ {known} · {folder.stats.attempts} lượt quiz</div>
-        <div style={{ marginTop: 8 }}>
-          <button className="btn btn-primary" onClick={() => setShowAppend(true)}>➕ Thêm từ vào thư mục</button>
+    <main className="page" style={{ maxWidth: 1160, margin: '0 auto', paddingBottom: 64 }}>
+      {/* Breadcrumb Cirrus */}
+      <div style={{ marginBottom: 16 }}>
+        <Link href="/folders" style={{ color: 'var(--muted)', fontSize: 14, fontWeight: 500 }}>
+          ← Thư mục của bạn
+        </Link>
+        <span style={{ color: 'var(--muted)', margin: '0 8px', fontSize: 13 }}>/</span>
+        <span style={{ color: 'var(--ink)', fontSize: 14, fontWeight: 600 }}>{folder.name.toUpperCase()}</span>
+      </div>
+
+      {/* Header Panel Cirrus */}
+      <div
+        style={{
+          background: 'var(--panel)',
+          border: '1px solid var(--border-soft)',
+          borderRadius: 20,
+          padding: '24px 28px',
+          boxShadow: 'var(--card-shadow)',
+          marginBottom: 24,
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+          <div>
+            <span className="category-pill" style={{ marginBottom: 8, display: 'inline-block' }}>
+              📁 BỘ TỪ VỰNG RIÊNG
+            </span>
+            <h1 style={{ fontSize: 30, fontWeight: 800, margin: '4px 0 8px' }}>
+              {folder.name}
+            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', color: 'var(--muted)', fontSize: 14 }}>
+              <span><b>{folder.words.length}</b> từ vựng</span>
+              <span>•</span>
+              <span>Đã nhớ <b>{known}</b> từ ({rate}%)</span>
+              <span>•</span>
+              <span><b>{folder.stats.attempts}</b> lượt luyện</span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setShowAppend(true)}
+              style={{
+                padding: '9px 18px',
+                borderRadius: 9999,
+                background: '#0f172a',
+                color: '#fff',
+                border: 'none',
+                fontWeight: 600,
+                fontSize: 14,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <span>➕</span> Thêm từ mới
+            </button>
+            <button
+              onClick={() => exportFolderToExcel(folder)}
+              title="Xuất danh sách từ vựng ra file Excel (.xlsx)"
+              style={{
+                padding: '9px 18px',
+                borderRadius: 9999,
+                background: 'var(--surface-2)',
+                color: 'var(--ink)',
+                border: '1px solid var(--border-soft)',
+                fontWeight: 600,
+                fontSize: 14,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <span>📥</span> Xuất Excel (.xlsx)
+            </button>
+          </div>
         </div>
-        <div className="topic-row">
-          <button className={`topic-chip ${tab === 'words' ? 'active' : ''}`} onClick={() => setTab('words')}>📝 Từ vựng</button>
-          <button className={`topic-chip ${tab === 'flip' ? 'active' : ''}`} onClick={() => setTab('flip')}>🃏 Lật thẻ</button>
-          <button className={`topic-chip ${tab === 'write' ? 'active' : ''}`} onClick={() => setTab('write')}>✍️ Điền từ</button>
-          <button className={`topic-chip ${tab === 'listen' ? 'active' : ''}`} onClick={() => setTab('listen')}>🔊 Nghe–chép</button>
-          <button className={`topic-chip ${tab === 'match' ? 'active' : ''}`} onClick={() => setTab('match')}>⚡ Ghép cặp</button>
-          <button className={`topic-chip ${tab === 'blast' ? 'active' : ''}`} onClick={() => setTab('blast')}>💥 Card Blast</button>
-          <button className={`topic-chip ${tab === 'quiz' ? 'active' : ''}`} onClick={() => setTab('quiz')}>🏆 Quiz</button>
+
+        {/* Mode Selector Tabs Cirrus */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 24, paddingTop: 18, borderTop: '1px solid var(--border-soft)' }}>
+          <button
+            className={`topic-chip ${tab === 'words' ? 'active' : ''}`}
+            onClick={() => setTab('words')}
+          >
+            📝 Danh sách ({folder.words.length})
+          </button>
+          <button
+            className={`topic-chip ${tab === 'flip' ? 'active' : ''}`}
+            onClick={() => setTab('flip')}
+          >
+            🃏 Lật thẻ 3D
+          </button>
+          <button
+            className={`topic-chip ${tab === 'write' ? 'active' : ''}`}
+            onClick={() => setTab('write')}
+          >
+            ✍️ Điền từ
+          </button>
+          <button
+            className={`topic-chip ${tab === 'listen' ? 'active' : ''}`}
+            onClick={() => setTab('listen')}
+          >
+            🔊 Nghe–chép
+          </button>
+          <button
+            className={`topic-chip ${tab === 'match' ? 'active' : ''}`}
+            onClick={() => setTab('match')}
+          >
+            ⚡ Ghép cặp
+          </button>
+          <button
+            className={`topic-chip ${tab === 'blast' ? 'active' : ''}`}
+            onClick={() => setTab('blast')}
+          >
+            💥 Card Blast
+          </button>
+          <button
+            className={`topic-chip ${tab === 'quiz' ? 'active' : ''}`}
+            onClick={() => setTab('quiz')}
+          >
+            🏆 Quiz
+          </button>
         </div>
       </div>
+
+      {/* Tab 1: Words List */}
       {tab === 'words' && (
         <>
-          {folder.words.length === 0 && <div className="panel">Thư mục trống.</div>}
-          {folder.words.map((w) => {
-            const st = folder.status[w.en.toLowerCase()] ?? 'new';
-            return (
-              <div key={w.id} className="word-card">
-                <h3>
-                  {w.en}
-                  <button className="speak-btn" title="Nghe phát âm" onClick={() => void speakWord(w)}>🔊</button>
-                  {st === 'known' && <span className="badge">Đã nhớ</span>}
-                  {st === 'learning' && <span className="badge">Đang học</span>}
-                </h3>
-                <div className="ipa">{w.ipa ? `${w.ipa} — ` : ''}{w.vi || '(chưa có nghĩa Việt)'}</div>
-                {w.example && <div className="ex">“{w.example}”</div>}
-                <div style={{ marginTop: 8 }}>
-                  <button className="btn btn-ghost" onClick={() => removeWord(w.id)}>🗑️ Xóa từ</button>
-                </div>
-              </div>
-            );
-          })}
+          {folder.words.length > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+              <input
+                type="text"
+                value={searchWord}
+                onChange={(e) => setSearchWord(e.target.value)}
+                placeholder="🔍 Tìm nhanh từ trong thư mục này..."
+                style={{
+                  padding: '9px 16px',
+                  borderRadius: 9999,
+                  border: '1px solid var(--border-soft)',
+                  background: 'var(--input-bg)',
+                  color: 'var(--ink)',
+                  fontSize: 14,
+                  minWidth: 260,
+                  outline: 'none',
+                }}
+              />
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                Hiển thị {filteredWords.length}/{folder.words.length} từ
+              </span>
+            </div>
+          )}
+
+          {folder.words.length === 0 ? (
+            <div
+              style={{
+                background: 'var(--panel)',
+                border: '1px solid var(--border-soft)',
+                borderRadius: 18,
+                padding: '40px 20px',
+                textAlign: 'center',
+                color: 'var(--muted)',
+              }}
+            >
+              Thư mục đang trống. Bấm <b>➕ Thêm từ mới</b> để thêm từ vựng nhé!
+            </div>
+          ) : filteredWords.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '36px 0', color: 'var(--muted)' }}>
+              Không tìm thấy từ vựng nào khớp với từ khóa tìm kiếm.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+              {filteredWords.map((w) => {
+                const st = folder.status[w.en.toLowerCase()] ?? 'new';
+                return (
+                  <div
+                    key={w.id}
+                    style={{
+                      background: 'var(--panel)',
+                      border: '1px solid var(--border-soft)',
+                      borderRadius: 16,
+                      padding: '18px 20px',
+                      boxShadow: 'var(--card-shadow)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--heading)' }}>
+                          {w.en}
+                        </span>
+                        <button
+                          className="speak-btn"
+                          title="Nghe phát âm"
+                          onClick={() => void speakWord(w)}
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: '50%',
+                            border: '1px solid var(--border-soft)',
+                            background: 'var(--surface-2)',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 14,
+                          }}
+                        >
+                          🔊
+                        </button>
+                      </div>
+
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          padding: '3px 8px',
+                          borderRadius: 9999,
+                          background: st === 'known' ? '#ecfdf5' : st === 'learning' ? '#fef3c7' : 'var(--surface-2)',
+                          color: st === 'known' ? '#059669' : st === 'learning' ? '#d97706' : 'var(--muted)',
+                          border: `1px solid ${st === 'known' ? '#a7f3d0' : st === 'learning' ? '#fde68a' : 'var(--border-soft)'}`,
+                        }}
+                      >
+                        {st === 'known' ? '⭐ Đã thuộc' : st === 'learning' ? '⚡ Đang học' : '🌱 Mới'}
+                      </span>
+                    </div>
+
+                    <div style={{ margin: '8px 0 6px', fontSize: 14 }}>
+                      {w.ipa && <span style={{ color: '#0284c7', marginRight: 8, fontFamily: 'monospace' }}>{w.ipa}</span>}
+                      <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{w.vi || '(Chưa có nghĩa Việt)'}</span>
+                    </div>
+
+                    {w.example && (
+                      <div style={{ fontSize: 13, color: 'var(--muted)', fontStyle: 'italic', margin: '4px 0 12px' }}>
+                        “{w.example}”
+                      </div>
+                    )}
+
+                    <div style={{ marginTop: 'auto', paddingTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
+                      <button
+                        onClick={() => removeWord(w.id)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--muted)',
+                          fontSize: 12,
+                          cursor: 'pointer',
+                          padding: '4px 8px',
+                          borderRadius: 6,
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--muted)'; }}
+                      >
+                        🗑️ Xóa từ
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </>
       )}
+
+      {/* Tab 2: Flip 3D */}
       {tab === 'flip' && (
         folder.words.length === 0
-          ? <div className="panel">Thư mục trống, chưa luyện được.</div>
+          ? <div className="panel">Thư mục trống, hãy thêm từ trước khi luyện tập.</div>
           : <FlipMode key={`flip-${folder.words.length}`} words={folderWords} onKnown={markKnown} />
       )}
+
+      {/* Tab 3: Write */}
       {tab === 'write' && (
         folder.words.length === 0
-          ? <div className="panel">Thư mục trống, chưa luyện được.</div>
+          ? <div className="panel">Thư mục trống, hãy thêm từ trước khi luyện tập.</div>
           : <WriteMode key={`write-${folder.words.length}`} words={folderWords} />
       )}
+
+      {/* Tab 4: Listen */}
       {tab === 'listen' && (
         folder.words.length === 0
-          ? <div className="panel">Thư mục trống, chưa luyện được.</div>
+          ? <div className="panel">Thư mục trống, hãy thêm từ trước khi luyện tập.</div>
           : <ListenMode key={`listen-${folder.words.length}`} words={folderWords} />
       )}
+
+      {/* Tab 5: Match */}
       {tab === 'match' && (
         folder.words.length === 0
-          ? <div className="panel">Thư mục trống, chưa luyện được.</div>
+          ? <div className="panel">Thư mục trống, hãy thêm từ trước khi luyện tập.</div>
           : <MatchMode key={`match-${folder.words.length}`} words={folderWords} />
       )}
+
+      {/* Tab 6: Blast */}
       {tab === 'blast' && (
         folder.words.length === 0
-          ? <div className="panel">Thư mục trống, chưa luyện được.</div>
+          ? <div className="panel">Thư mục trống, hãy thêm từ trước khi luyện tập.</div>
           : <BlastGame key={`blast-${folder.words.length}`} words={folderWords} saveServer={false} onDone={recordBlast} />
       )}
+
+      {/* Tab 7: Quiz */}
       {tab === 'quiz' && (
         <FolderQuiz key={`${folder.id}-${folder.words.length}`} folder={folder} onDone={recordQuiz} />
       )}
+
       {showAppend && (
         <ImportModal
           mode="append"
@@ -281,8 +544,18 @@ function FolderQuiz({
 
   if (questions.length === 0) {
     return (
-      <div className="panel">
-        😢 Chưa đủ từ có nghĩa Việt để làm quiz (cần ít nhất 4 từ đã tra xong nghĩa).
+      <div
+        style={{
+          background: 'var(--panel)',
+          border: '1px solid var(--border-soft)',
+          borderRadius: 18,
+          padding: '40px 24px',
+          textAlign: 'center',
+          color: 'var(--muted)',
+        }}
+      >
+        <div style={{ fontSize: 36, marginBottom: 8 }}>📝</div>
+        Chưa đủ từ có nghĩa tiếng Việt để làm quiz (cần ít nhất 4 từ có nghĩa).
       </div>
     );
   }
@@ -313,38 +586,119 @@ function FolderQuiz({
   }
 
   if (done) {
-    const rate = questions.length === 0 ? 0 : score / questions.length;
-    const emoji = rate >= 0.8 ? '🏆 Tuyệt vời!' : rate >= 0.5 ? '💪 Khá lắm!' : '📚 Cố lên nào!';
+    const rate = questions.length === 0 ? 0 : Math.round((score / questions.length) * 100);
+    const emoji = rate >= 80 ? '🏆 Tuyệt vời!' : rate >= 50 ? '💪 Khá lắm!' : '📚 Cố lên nào!';
     return (
-      <div>
-        <div className="score-banner">{emoji}<br />{score}/{questions.length}</div>
-        <p>Đã lưu vào tiến độ thư mục này.</p>
-        <button className="btn btn-primary" onClick={start}>🔁 Làm lại</button>
+      <div
+        style={{
+          background: 'var(--panel)',
+          border: '1px solid var(--border-soft)',
+          borderRadius: 20,
+          padding: '40px 24px',
+          textAlign: 'center',
+          maxWidth: 600,
+          margin: '0 auto',
+          boxShadow: 'var(--card-shadow)',
+        }}
+      >
+        <div className="score-banner" style={{ margin: '0 auto 16px' }}>
+          {emoji}<br />{score}/{questions.length} ({rate}%)
+        </div>
+        <p style={{ color: 'var(--muted)', fontSize: 15, marginBottom: 24 }}>
+          Kết quả đã được tự động lưu vào tiến độ ghi nhớ của thư mục này.
+        </p>
+        <button
+          onClick={start}
+          style={{
+            padding: '11px 26px',
+            borderRadius: 9999,
+            background: '#0f172a',
+            color: '#fff',
+            border: 'none',
+            fontWeight: 600,
+            fontSize: 15,
+            cursor: 'pointer',
+          }}
+        >
+          🔁 Làm lại bài quiz
+        </button>
       </div>
     );
   }
 
   const q = questions[current] as QuizQuestion;
   return (
-    <div>
-      <h2>Câu {current + 1}/{questions.length}: “{q.en}” nghĩa là gì?</h2>
-      <div className="progress-track">
+    <div
+      style={{
+        background: 'var(--panel)',
+        border: '1px solid var(--border-soft)',
+        borderRadius: 20,
+        padding: '28px',
+        maxWidth: 680,
+        margin: '0 auto',
+        boxShadow: 'var(--card-shadow)',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--muted)' }}>
+          CÂU HỎI {current + 1} / {questions.length}
+        </span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: '#0284c7' }}>
+          ⭐ Điểm: {score}
+        </span>
+      </div>
+
+      <div className="progress-track" style={{ height: 6, marginBottom: 20 }}>
         <div className="progress-fill" style={{ width: `${((current + 1) / questions.length) * 100}%` }} />
       </div>
-      <p>⭐ Điểm hiện tại: {score}</p>
-      {q.choices.map((c) => {
-        let cls = 'choice-btn';
-        if (picked !== null) {
-          if (c === q.answer) cls += ' correct';
-          else if (c === picked) cls += ' wrong';
-        }
-        return (
-          <button key={c} className={cls} onClick={() => choose(c)} disabled={picked !== null}>
-            {picked !== null && c === q.answer ? '✅ ' : picked !== null && c === picked ? '❌ ' : '🔹 '}{c}
+
+      <h2 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 20px', textAlign: 'center' }}>
+        Từ “<span style={{ color: '#0284c7' }}>{q.en}</span>” có nghĩa là gì?
+      </h2>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {q.choices.map((c, idx) => {
+          let cls = 'choice-btn';
+          if (picked !== null) {
+            if (c === q.answer) cls += ' correct';
+            else if (c === picked) cls += ' wrong';
+          }
+          return (
+            <button
+              key={c}
+              className={cls}
+              onClick={() => choose(c)}
+              disabled={picked !== null}
+              style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}
+            >
+              <span className="choice-badge">{String.fromCharCode(65 + idx)}</span>
+              <span style={{ flex: 1 }}>{c}</span>
+              {picked !== null && c === q.answer && <span style={{ color: '#10b981', fontWeight: 700 }}>✓ Đúng</span>}
+              {picked !== null && c === picked && c !== q.answer && <span style={{ color: '#ef4444', fontWeight: 700 }}>✗ Sai</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {picked !== null && (
+        <div style={{ marginTop: 20, textAlign: 'center' }}>
+          <button
+            onClick={next}
+            style={{
+              padding: '10px 24px',
+              borderRadius: 9999,
+              background: '#0f172a',
+              color: '#fff',
+              border: 'none',
+              fontWeight: 600,
+              fontSize: 15,
+              cursor: 'pointer',
+            }}
+          >
+            {current + 1 >= questions.length ? 'Xem kết quả →' : 'Câu tiếp theo →'}
           </button>
-        );
-      })}
-      {picked !== null && <button className="btn btn-primary" onClick={next} style={{ marginTop: 12 }}>Tiếp →</button>}
+        </div>
+      )}
     </div>
   );
 }

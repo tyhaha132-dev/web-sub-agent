@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
   answeredOf,
   avgSecondsPerQ,
@@ -21,14 +22,34 @@ import {
 
 const TARGETS = [500, 600, 700, 800, 900];
 
-const SECTIONS = [
-  { href: '/toeic/reading?part=5', icon: '📖', label: 'Reading Part 5 (30 câu)' },
-  { href: '/toeic/reading?part=6', icon: '📄', label: 'Reading Part 6 (16 câu)' },
-  { href: '/toeic/reading?part=7', icon: '📚', label: 'Reading Part 7 (54 câu)' },
-  { href: '/toeic/vocabulary', icon: '🗂️', label: 'Từ vựng SRS' },
-  { href: '/toeic/grammar', icon: '📐', label: 'Ngữ pháp' },
-  { href: '/toeic/speed', icon: '⚡', label: 'Đọc nhanh' },
-  { href: '/toeic/errors', icon: '🧾', label: 'Nhật ký lỗi' },
+const MAIN_PARTS = [
+  {
+    part: 5,
+    href: '/toeic/reading?part=5',
+    title: 'Part 5: Incomplete Sentences',
+    desc: 'Hoàn thành câu ngữ pháp & từ vựng công sở trọng điểm.',
+    badge: '30 câu / đề',
+    icon: '📖',
+    accent: '#0284c7',
+  },
+  {
+    part: 6,
+    href: '/toeic/reading?part=6',
+    title: 'Part 6: Text Completion',
+    desc: 'Điền đoạn văn: email, thông báo, ghi nhớ (memo) kèm bài đọc.',
+    badge: '16 câu / đề',
+    icon: '📄',
+    accent: '#0ea5e9',
+  },
+  {
+    part: 7,
+    href: '/toeic/reading?part=7',
+    title: 'Part 7: Reading Comprehension',
+    desc: 'Đọc hiểu đoạn đơn & đoạn kép thực tế chuẩn đề thi thật.',
+    badge: '54 câu / đề',
+    icon: '📚',
+    accent: '#38bdf8',
+  },
 ];
 
 function WeekChecklist({ level }: { level: string }) {
@@ -37,21 +58,48 @@ function WeekChecklist({ level }: { level: string }) {
   if (tasks.length === 0) return null;
   const allDone = tasks.every((_, i) => done.includes(i));
   return (
-    <div style={{ marginTop: 8 }}>
-      <p><b>✅ Nhiệm vụ tuần này ({done.length}/{tasks.length}):</b></p>
-      {tasks.map((t, i) => (
-        <label key={i} style={{ display: 'block', marginTop: 4 }}>
-          <input
-            type="checkbox"
-            checked={done.includes(i)}
-            onChange={() => setDone(toggleWeekDone(level, i))}
-          />{' '}
-          <span style={{ textDecoration: done.includes(i) ? 'line-through' : 'none' }}>{t}</span>
-        </label>
-      ))}
+    <div style={{ marginTop: 12 }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--heading)', marginBottom: 8 }}>
+        ✅ Nhiệm vụ trọng tâm tuần ({done.length}/{tasks.length}):
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {tasks.map((t, i) => (
+          <label
+            key={i}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              fontSize: 14,
+              cursor: 'pointer',
+              color: done.includes(i) ? 'var(--muted)' : 'var(--ink)',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={done.includes(i)}
+              onChange={() => setDone(toggleWeekDone(level, i))}
+            />
+            <span style={{ textDecoration: done.includes(i) ? 'line-through' : 'none' }}>{t}</span>
+          </label>
+        ))}
+      </div>
       {allDone && (
-        <button className="btn" style={{ marginTop: 8 }} onClick={() => { resetWeekDone(level); setDone([]); }}>
-          🎉 Xong tuần! Sang tuần mới →
+        <button
+          onClick={() => { resetWeekDone(level); setDone([]); }}
+          style={{
+            marginTop: 12,
+            padding: '6px 14px',
+            borderRadius: 9999,
+            background: '#ecfdf5',
+            color: '#059669',
+            border: '1px solid #a7f3d0',
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          🎉 Đã xong tuần! Bắt đầu tuần mới →
         </button>
       )}
     </div>
@@ -92,101 +140,320 @@ export default function ToeicHome() {
     try {
       await saveToeicProfile({ display_name: name.trim(), target_score: target });
       setNameSaved(true);
+      setTimeout(() => setNameSaved(false), 3000);
     } catch { /* backend chưa chạy */ }
   }
 
   const pathway = levels.filter((l) => l.max >= target).slice(0, 3);
+  const streak = computeStreak(attempts);
+  const avgSec = avgSecondsPerQ(attempts);
 
   return (
-    <main>
-      <h1>💼 TOEIC — Luyện thi công sở</h1>
-      <div className="panel">
-        <p>
-          👤 Tên hiển thị:{' '}
-          <input
-            value={name}
-            onChange={(e) => { setName(e.target.value); setNameSaved(false); }}
-            placeholder="Tên của bạn (lưu theo máy)"
-            style={{ padding: 6, maxWidth: 220 }}
-          />{' '}
-          <button className="btn" onClick={saveName}>Lưu</button>{' '}
-          {nameSaved && '✅ đã lưu'}
-        </p>
-        <p>🎯 Mục tiêu của bạn: <b>{target}</b></p>
-        <div>
-          {TARGETS.map((v) => (
-            <button
-              key={v}
-              className="btn"
-              onClick={() => pickTarget(v)}
-              disabled={v === target}
-              style={{ marginRight: 8, marginTop: 8 }}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-        <div style={{ marginTop: 12 }}>
-          <a className="btn btn-light" href="/toeic/reading">📖 Luyện Part 5 ngay</a>
-        </div>
-        {error && <p>{error}</p>}
+    <main className="page" style={{ maxWidth: 1160, margin: '0 auto', paddingBottom: 64 }}>
+      {/* Breadcrumb Cirrus */}
+      <div style={{ marginBottom: 16 }}>
+        <Link href="/" style={{ color: 'var(--muted)', fontSize: 14, fontWeight: 500 }}>
+          ← Trang chủ
+        </Link>
+        <span style={{ color: 'var(--muted)', margin: '0 8px', fontSize: 13 }}>/</span>
+        <span style={{ color: 'var(--ink)', fontSize: 14, fontWeight: 600 }}>LUYỆN THI TOEIC READING</span>
       </div>
 
-      <h2>🧭 Các phần luyện</h2>
-      <div className="card-grid">
-        {SECTIONS.map((s) => (
-          <a key={s.href} href={s.href} className="skill-card sk-teal">
-            <div className="icon">{s.icon}</div>
-            <h3>{s.label}</h3>
-          </a>
+      {/* Header Cirrus */}
+      <div style={{ marginBottom: 28 }}>
+        <span className="category-pill" style={{ marginBottom: 10, display: 'inline-block' }}>
+          💼 LUYỆN THI TOEIC CHUẨN ETS
+        </span>
+        <h1 style={{ fontSize: 32, fontWeight: 800, margin: '6px 0 10px', letterSpacing: '-0.02em' }}>
+          Luyện thi TOEIC Reading
+        </h1>
+        <p style={{ color: 'var(--muted)', fontSize: 15, margin: 0, maxWidth: 720 }}>
+          Kho 515 câu hỏi TOEIC Reading chuẩn format (Part 5, 6, 7) kèm lời giải thích song ngữ Việt – Anh, phân tích ngữ pháp và giao diện Computer-Based Test (CBT) hiện đại.
+        </p>
+      </div>
+
+      {/* Profile & Target Card Cirrus */}
+      <div
+        style={{
+          background: 'var(--panel)',
+          border: '1px solid var(--border-soft)',
+          borderRadius: 20,
+          padding: '24px 28px',
+          boxShadow: 'var(--card-shadow)',
+          marginBottom: 32,
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--heading)' }}>
+              👤 Tên hiển thị:
+            </span>
+            <input
+              value={name}
+              onChange={(e) => { setName(e.target.value); setNameSaved(false); }}
+              placeholder="Nhập tên của bạn"
+              style={{
+                padding: '7px 14px',
+                borderRadius: 9999,
+                border: '1px solid var(--border-soft)',
+                background: 'var(--input-bg)',
+                color: 'var(--ink)',
+                fontSize: 14,
+                outline: 'none',
+              }}
+            />
+            <button
+              onClick={saveName}
+              style={{
+                padding: '7px 16px',
+                borderRadius: 9999,
+                background: '#0f172a',
+                color: '#fff',
+                border: 'none',
+                fontWeight: 600,
+                fontSize: 13,
+                cursor: 'pointer',
+              }}
+            >
+              Lưu
+            </button>
+            {nameSaved && <span style={{ color: '#10b981', fontSize: 13, fontWeight: 600 }}>✅ Đã lưu</span>}
+          </div>
+
+          {/* Target Score Pill Selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)' }}>
+              🎯 Mục tiêu điểm số:
+            </span>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {TARGETS.map((v) => (
+                <button
+                  key={v}
+                  onClick={() => pickTarget(v)}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: 9999,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    background: v === target ? '#0284c7' : 'var(--surface-2)',
+                    color: v === target ? '#ffffff' : 'var(--chip-text)',
+                    border: v === target ? '1px solid #0284c7' : '1px solid var(--border-soft)',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {v}+
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Parts Grid (Part 5, 6, 7) */}
+      <h2 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 16px' }}>
+        📚 Các phần luyện thi Reading chuẩn
+      </h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20, marginBottom: 36 }}>
+        {MAIN_PARTS.map((p) => (
+          <div
+            key={p.part}
+            style={{
+              background: 'var(--panel)',
+              border: '1px solid var(--border-soft)',
+              borderRadius: 20,
+              padding: '24px',
+              boxShadow: 'var(--card-shadow)',
+              display: 'flex',
+              flexDirection: 'column',
+              transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <span style={{ fontSize: 32 }}>{p.icon}</span>
+              <span
+                style={{
+                  padding: '4px 12px',
+                  borderRadius: 9999,
+                  background: '#f0f9ff',
+                  border: '1px solid #bae6fd',
+                  color: '#0369a1',
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                {p.badge}
+              </span>
+            </div>
+
+            <h3 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 8px', color: 'var(--heading)' }}>
+              {p.title}
+            </h3>
+            <p style={{ color: 'var(--muted)', fontSize: 14, margin: '0 0 20px', lineHeight: 1.5 }}>
+              {p.desc}
+            </p>
+
+            <div style={{ marginTop: 'auto' }}>
+              <Link
+                href={p.href}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '100%',
+                  padding: '10px 18px',
+                  borderRadius: 9999,
+                  background: '#0f172a',
+                  color: '#fff',
+                  fontWeight: 600,
+                  fontSize: 14,
+                  boxShadow: '0 2px 8px rgba(15, 23, 42, 0.12)',
+                }}
+              >
+                Vào luyện đề ngay →
+              </Link>
+            </div>
+          </div>
         ))}
       </div>
 
-      <h2>📈 Quỹ đạo điểm (10 lần gần nhất)</h2>
-      {attempts.length === 0 && <p>Chưa có dữ liệu.</p>}
-      {attempts.length > 0 && (
-        <p>🔥 Streak: <b>{computeStreak(attempts)} ngày</b>
-          {avgSecondsPerQ(attempts) !== null && <> · ⏱️ TB <b>{avgSecondsPerQ(attempts)}s</b>/câu</>}</p>
-      )}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 80 }}>
-        {attempts.slice(0, 10).reverse().map((a) => {
-          const pct = a.total === 0 ? 0 : a.score / a.total;
-          const answered = answeredOf(a);
-          return (
-            <div
-              key={a.id}
-              title={`${a.score}/${a.total} ${a.band}${answered < a.total ? ` (làm ${answered}/${a.total})` : ''}`}
-              style={{ flex: 1, height: `${Math.max(6, pct * 100)}%`, background: 'var(--accent, #0284c7)', borderRadius: 4 }}
-            />
-          );
-        })}
+      {/* Quỹ đạo điểm số & Streak */}
+      <div
+        style={{
+          background: 'var(--panel)',
+          border: '1px solid var(--border-soft)',
+          borderRadius: 20,
+          padding: '24px 28px',
+          boxShadow: 'var(--card-shadow)',
+          marginBottom: 36,
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>
+            📈 Quỹ đạo điểm số 10 lượt gần nhất
+          </h2>
+          <div style={{ display: 'flex', gap: 14, fontSize: 14, color: 'var(--muted)' }}>
+            <span>🔥 Chuỗi luyện tập: <b style={{ color: '#f59e0b' }}>{streak} ngày</b></span>
+            {avgSec !== null && (
+              <span>⏱️ Tốc độ trung bình: <b>{avgSec}s</b>/câu</span>
+            )}
+          </div>
+        </div>
+
+        {attempts.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--muted)', fontSize: 14 }}>
+            Chưa có lượt làm bài nào. Hãy chọn Part 5, 6 hoặc 7 ở trên để bắt đầu nhé! 🚀
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 90, marginTop: 16 }}>
+            {attempts.slice(0, 10).reverse().map((a) => {
+              const pct = a.total === 0 ? 0 : a.score / a.total;
+              const answered = answeredOf(a);
+              return (
+                <div
+                  key={a.id}
+                  title={`${a.score}/${a.total} câu đúng (${a.band})${answered < a.total ? ` • đã làm ${answered}/${a.total}` : ''}`}
+                  style={{
+                    flex: 1,
+                    height: `${Math.max(10, pct * 100)}%`,
+                    background: pct >= 0.8 ? '#10b981' : pct >= 0.5 ? '#0284c7' : '#f59e0b',
+                    borderRadius: '6px 6px 0 0',
+                    transition: 'height 0.3s ease',
+                  }}
+                />
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      <h2>🪜 Lộ trình tới {target}</h2>
-      {pathway.length === 0 && <p>Chưa tải được thang điểm.</p>}
-      {pathway.map((l) => (
-        <div key={l.level} className="panel" style={{ marginTop: 8 }}>
-          <p><b>{l.level}</b> ({l.min}–{l.max}) — {l.focus}</p>
-          <p>🗓️ {l.weekly}</p>
-          <WeekChecklist level={l.level} />
-        </div>
-      ))}
+      {/* Lộ trình & Thang điểm TOEIC */}
+      <h2 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 16px' }}>
+        🪜 Lộ trình mục tiêu điểm {target}+
+      </h2>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 36 }}>
+        {pathway.length === 0 ? (
+          <p style={{ color: 'var(--muted)' }}>Đang tải lộ trình học...</p>
+        ) : (
+          pathway.map((l) => (
+            <div
+              key={l.level}
+              style={{
+                background: 'var(--panel)',
+                border: '1px solid var(--border-soft)',
+                borderRadius: 16,
+                padding: '20px 24px',
+                boxShadow: 'var(--card-shadow)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--heading)' }}>
+                  Band {l.level} ({l.min}–{l.max} điểm)
+                </span>
+                <span style={{ fontSize: 13, color: '#0284c7', fontWeight: 600 }}>
+                  🗓️ {l.weekly}
+                </span>
+              </div>
+              <p style={{ color: 'var(--muted)', fontSize: 14, margin: '8px 0 12px' }}>
+                {l.focus}
+              </p>
+              <WeekChecklist level={l.level} />
+            </div>
+          ))
+        )}
+      </div>
 
-      <h2>📊 Thang điểm TOEIC</h2>
-      {levels.map((l) => (
-        <div key={l.level} className="panel" style={{ marginTop: 8 }}>
-          <p><b>{l.level}</b> ({l.min}–{l.max})</p>
-          <p>{l.focus}</p>
-        </div>
-      ))}
+      {/* Lịch sử thi gần đây */}
+      <h2 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 16px' }}>
+        🕘 Lịch sử làm bài thi gần đây ({attempts.length})
+      </h2>
+      {attempts.length === 0 ? (
+        <p style={{ color: 'var(--muted)' }}>Chưa có lượt làm bài nào.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {attempts.slice(0, 8).map((a) => (
+            <div
+              key={a.id}
+              style={{
+                background: 'var(--panel)',
+                border: '1px solid var(--border-soft)',
+                borderRadius: 14,
+                padding: '14px 20px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                boxShadow: 'var(--card-shadow)',
+              }}
+            >
+              <div>
+                <span style={{ fontWeight: 700, fontSize: 15 }}>
+                  {a.part ? `Reading Part ${a.part}` : a.meta?.includes('part=') ? `Reading Part ${a.meta.split('part=')[1]?.slice(0, 1)}` : 'TOEIC Reading'}
+                </span>
+                <span style={{ color: 'var(--muted)', fontSize: 13, marginLeft: 12 }}>
+                  {answeredOf(a) < a.total ? `(Làm ${answeredOf(a)}/${a.total} câu)` : '(Làm đủ)'}
+                </span>
+              </div>
 
-      <h2>🕘 Lịch sử làm bài ({attempts.length})</h2>
-      {attempts.length === 0 && <p>Chưa có lượt nào — làm bài đầu tiên đi! 🚀</p>}
-      {attempts.slice(0, 10).map((a) => (
-        <div key={a.id} className="panel" style={{ marginTop: 8 }}>
-          <p>{a.score}/{a.total} — {a.band} ({a.kind === 'placement' ? 'kiểm tra (cũ)' : a.kind === 'mock' ? 'thi thử (cũ)' : 'luyện tập'}){answeredOf(a) < a.total ? ` • đã làm ${answeredOf(a)}/${a.total}` : ''}</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 13, color: 'var(--muted)' }}>{a.band}</span>
+                <span
+                  style={{
+                    padding: '3px 10px',
+                    borderRadius: 9999,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    background: a.score / a.total >= 0.8 ? '#ecfdf5' : '#eff6ff',
+                    color: a.score / a.total >= 0.8 ? '#059669' : '#0284c7',
+                    border: `1px solid ${a.score / a.total >= 0.8 ? '#a7f3d0' : '#bae6fd'}`,
+                  }}
+                >
+                  {a.score} / {a.total}
+                </span>
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </main>
   );
 }

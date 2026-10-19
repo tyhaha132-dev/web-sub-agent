@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import html
 import json
 import random
@@ -60,13 +61,19 @@ _H2_RE = re.compile(r"<h2[^>]*>.*?</h2>", re.DOTALL)
 _IPA_RE = re.compile(r'<span class="IPA[^"]*"[^>]*>(.*?)</span>', re.DOTALL)
 _TAG_RE = re.compile(r"<[^>]+>")
 
+# Origins CORS cho phép, mở rộng qua biến môi trường nếu cần
+_allowed_origins = [
+    os.getenv("FRONTEND_URL", "http://localhost:3000"),
+    "http://localhost:3000",
+    "http://localhost:3005",
+]
+_extra_cors = os.getenv("ADDITIONAL_CORS_ORIGINS", "")
+if _extra_cors:
+    _allowed_origins.extend([o.strip() for o in _extra_cors.split(",") if o.strip()])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        os.getenv("FRONTEND_URL", "http://localhost:3000"),
-        "http://localhost:3000",
-        "http://localhost:3005",
-    ],
+    allow_origins=list(dict.fromkeys(_allowed_origins)),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -715,11 +722,62 @@ def word_audio(en: str = "", user: dict | None = Depends(get_current_user_option
     return {"audio": audio or None, "query": word}
 
 
+# Negative cache: từ tra cứu không có kết quả -> lưu 1 giờ, tối đa 1000 từ để chống DoS
+_NEGATIVE_CACHE_TTL = 3600
+_NEGATIVE_CACHE_MAX = 1000
+_negative_cache: OrderedDict[str, float] = OrderedDict()
+
+# In-memory IP rate limiter: ip -> danh sách timestamps trong 60 giây
+_LOOKUP_RATE_LIMIT = 40  # 40 request / phút / IP
+_LOOKUP_RATE_WINDOW = 60
+_lookup_rates: dict[str, list[float]] = {}
+
+
+def _check_negative_cache(word: str) -> bool:
+    key = word.lower().strip()
+    now = time.time()
+    ts = _negative_cache.get(key)
+    if ts is not None:
+        if now - ts < _NEGATIVE_CACHE_TTL:
+            return True
+        del _negative_cache[key]
+    return False
+
+
+def _record_negative_cache(word: str) -> None:
+    key = word.lower().strip()
+    now = time.time()
+    _negative_cache[key] = now
+    if len(_negative_cache) > _NEGATIVE_CACHE_MAX:
+        _negative_cache.popitem(last=False)
+
+
+def _check_lookup_rate_limit(client_ip: str) -> bool:
+    now = time.time()
+    times = _lookup_rates.setdefault(client_ip, [])
+    # Dọn dẹp các mốc cũ quá 60s
+    _lookup_rates[client_ip] = [t for t in times if now - t < _LOOKUP_RATE_WINDOW]
+    if len(_lookup_rates[client_ip]) >= _LOOKUP_RATE_LIMIT:
+        return False
+    _lookup_rates[client_ip].append(now)
+    return True
+
+
 @app.get("/api/words/lookup")
-def lookup_word(en: str = "", user: dict | None = Depends(get_current_user_optional)) -> dict:
+def lookup_word(
+    en: str = "",
+    user: dict | None = Depends(get_current_user_optional),
+    x_forwarded_for: str | None = Header(None),
+) -> dict:
     word = " ".join(en.strip().split())
     if not word or len(word) > 60:
         return {"source": "none", "words": [], "external": None, "query": en.strip()[:60]}
+
+    # Rate limit chống cào dữ liệu làm nghẽn worker
+    client_ip = (x_forwarded_for.split(",")[0].strip() if x_forwarded_for else "local")
+    if not _check_lookup_rate_limit(client_ip):
+        return {"source": "none", "words": [], "external": None, "query": word, "error": "rate_limited"}
+
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
@@ -730,8 +788,14 @@ def lookup_word(en: str = "", user: dict | None = Depends(get_current_user_optio
         return {"source": "db", "words": [dict(r) for r in rows], "external": None, "query": word}
     if not WORD_RE.match(word):
         return {"source": "none", "words": [], "external": None, "query": word}
+
+    # Negative Cache: Trả về ngay nếu từ này vừa được tra cứu và không tồn tại trong 1 giờ qua
+    if _check_negative_cache(word):
+        return {"source": "none", "words": [], "external": None, "query": word}
+
     external = _fetch_external(word)
     if external is None:
+        _record_negative_cache(word)
         return {"source": "none", "words": [], "external": None, "query": word}
     return {"source": "external", "words": [], "external": external, "query": word}
 
