@@ -1,7 +1,19 @@
 export function triggerConfetti(): void {
   if (typeof window === 'undefined') return;
 
+  // Respect user preference for reduced motion (WCAG 2.3.3)
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    return;
+  }
+
+  // Remove existing active confetti canvas to prevent stacking & memory build-up
+  const existingCanvas = document.getElementById('englishfun-confetti-canvas');
+  if (existingCanvas) {
+    existingCanvas.remove();
+  }
+
   const canvas = document.createElement('canvas');
+  canvas.id = 'englishfun-confetti-canvas';
   canvas.style.position = 'fixed';
   canvas.style.top = '0';
   canvas.style.left = '0';

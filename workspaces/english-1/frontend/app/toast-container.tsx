@@ -7,6 +7,8 @@ export default function ToastContainer() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   useEffect(() => {
+    const timeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
     function handleToast(e: Event) {
       const customEvent = e as CustomEvent<ToastMessage>;
       if (!customEvent.detail) return;
@@ -14,13 +16,19 @@ export default function ToastContainer() {
       setToasts((prev) => [...prev.slice(-3), newToast]);
 
       // Auto dismiss after 3500ms
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         setToasts((prev) => prev.filter((t) => t.id !== newToast.id));
+        timeouts.delete(newToast.id);
       }, 3500);
+      timeouts.set(newToast.id, timeoutId);
     }
 
     window.addEventListener('englishfun-toast', handleToast);
-    return () => window.removeEventListener('englishfun-toast', handleToast);
+    return () => {
+      window.removeEventListener('englishfun-toast', handleToast);
+      timeouts.forEach((id) => clearTimeout(id));
+      timeouts.clear();
+    };
   }, []);
 
   if (toasts.length === 0) return null;
