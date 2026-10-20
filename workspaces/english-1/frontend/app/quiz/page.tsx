@@ -1,5 +1,7 @@
 'use client';
 
+import { triggerConfetti } from '../../lib/confetti';
+
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
@@ -119,6 +121,7 @@ export default function Quiz() {
       void saveProgress(score, questions.length, 'quiz', secs).catch(() => {});
     }
     setPhase('done');
+      if (score / questions.length >= 0.7) { setTimeout(() => triggerConfetti(), 300); }
   }
 
   const q = questions[idx];
@@ -169,7 +172,7 @@ export default function Quiz() {
     return (
       <main style={{ maxWidth: 680, margin: '0 auto', paddingBottom: 48 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <Link href="/" className="bio-breadcrumb-link" style={{ textDecoration: 'none', color: 'var(--muted)', fontSize: 13, fontWeight: 600 }}>
+          <Link href="/" className="app-breadcrumb-link" style={{ textDecoration: 'none', color: 'var(--muted)', fontSize: 13, fontWeight: 600 }}>
             ← Trang chủ
           </Link>
           <span style={{ color: 'var(--muted)', fontSize: 13 }}>/</span>

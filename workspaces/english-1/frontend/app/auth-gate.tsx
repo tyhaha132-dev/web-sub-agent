@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import ThemeToggle from './theme-toggle';
 import LoginForm from './login-form';
+import ToastContainer from './toast-container';
 import { fetchMe, getToken, logout, authFetch } from '../lib/auth';
 import { startActivityTracker, calculateStreak } from '../lib/api';
 
@@ -333,6 +334,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
           <span className="footer-tag">Phiên bản 2.0</span>
         </div>
       </footer>
+      <ToastContainer />
     </>
   );
 }

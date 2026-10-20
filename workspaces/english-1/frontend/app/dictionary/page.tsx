@@ -18,6 +18,8 @@ import {
 } from '../../lib/api';
 import EnglishIllustration from '../english-illustration';
 import ExtLinks from '../ext-links';
+import { toast } from '../../lib/toast';
+import { SkeletonGrid } from '../skeleton-card';
 import { exportWordsToExcel, makeFolder, putFolder } from '../../lib/folders';
 
 type StatusFilter = 'all' | 'bookmarked';
@@ -111,17 +113,18 @@ export default function DictionaryPage() {
   function handleExportBookmarks() {
     const list = results.filter((w) => bookmarkedSet.has(w.en));
     if (list.length === 0) {
-      alert('Chưa có từ nào được đánh dấu (bookmark) để xuất file!');
+      toast.error('Chưa có từ nào được đánh dấu (bookmark) để xuất file!');
       return;
     }
     exportWordsToExcel(list, `tu-vung-danh-dau-englishfun`);
+    toast.success(`Đã xuất thành công ${list.length} từ vựng ra file Excel!`);
   }
 
   // Chuyển toàn bộ từ đã bookmark thành một thư mục mới
   async function handleCreateFolderFromBookmarks() {
     const list = results.filter((w) => bookmarkedSet.has(w.en));
     if (list.length === 0) {
-      alert('Chưa có từ nào được đánh dấu (bookmark) để tạo thư mục!');
+      toast.error('Chưa có từ nào được đánh dấu (bookmark) để tạo thư mục!');
       return;
     }
     const entries = list.map((w) => ({
@@ -133,10 +136,9 @@ export default function DictionaryPage() {
     const newFolder = makeFolder(`Từ đã lưu (${list.length})`, entries);
     try {
       await putFolder(newFolder);
-      setFolderCreatedMsg(`✅ Đã tạo thư mục "${newFolder.name}" thành công! Mở mục "Thư mục" để học nhé.`);
-      setTimeout(() => setFolderCreatedMsg(''), 5000);
+      toast.success(`Đã tạo thư mục "${newFolder.name}" thành công! Mở mục "Thư mục" để học nhé.`);
     } catch {
-      alert('Không thể tạo thư mục. Vui lòng kiểm tra đăng nhập hoặc thử lại sau!');
+      toast.error('Không thể tạo thư mục. Vui lòng kiểm tra đăng nhập hoặc thử lại sau!');
     }
   }
 
@@ -246,7 +248,7 @@ export default function DictionaryPage() {
       {/* Header trang chuẩn bio-app */}
       <div style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <Link href="/" className="bio-breadcrumb-link">← Trang chủ</Link>
+          <Link href="/" className="app-breadcrumb-link">← Trang chủ</Link>
           <span style={{ color: 'var(--muted)', fontSize: 13 }}>/</span>
           <span className="category-pill">KHO TỪ VỰNG TRA CỨU</span>
         </div>
@@ -511,6 +513,9 @@ export default function DictionaryPage() {
       )}
 
       {/* Grid danh sách thẻ từ điển đa cột chuẩn bio-app (.dict-grid) */}
+      {loading && results.length === 0 ? (
+        <SkeletonGrid count={6} />
+      ) : (
       <div className="dict-grid">
         {shown.map((w) => {
           const isMarked = bookmarkedSet.has(w.en);
@@ -596,6 +601,7 @@ export default function DictionaryPage() {
           );
         })}
       </div>
+      )}
 
       {/* Trạng thái không tìm thấy */}
       {!loading && shown.length === 0 && !external && (

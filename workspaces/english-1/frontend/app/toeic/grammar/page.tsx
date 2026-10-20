@@ -18,7 +18,7 @@ export default function ToeicGrammarPage() {
       {/* Header Breadcrumb */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <Link href="/toeic" className="bio-breadcrumb-link">
+          <Link href="/toeic" className="app-breadcrumb-link">
             ← TOEIC
           </Link>
           <span style={{ color: 'var(--muted)', fontSize: 13 }}>/</span>

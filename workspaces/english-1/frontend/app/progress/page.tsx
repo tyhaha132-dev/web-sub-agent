@@ -131,7 +131,7 @@ export default function ProgressPage() {
       {/* Header trang chuẩn bio-app */}
       <div style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <Link href="/" className="bio-breadcrumb-link">← Trang chủ</Link>
+          <Link href="/" className="app-breadcrumb-link">← Trang chủ</Link>
           <span style={{ color: 'var(--muted)', fontSize: 13 }}>/</span>
           <span className="category-pill">BÁO CÁO HỌC TẬP</span>
         </div>

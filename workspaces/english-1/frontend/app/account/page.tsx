@@ -1,5 +1,8 @@
 'use client';
 
+import { toast } from '../../lib/toast';
+import { triggerConfetti } from '../../lib/confetti';
+
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { changePassword, fetchMe, getToken, authFetch } from '../../lib/auth';
@@ -121,7 +124,7 @@ export default function Account() {
     <main className="account-wrapper" style={{ paddingBottom: 64 }}>
       {/* Breadcrumb Trail */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-        <Link href="/" className="bio-breadcrumb-link">← Trang chủ</Link>
+        <Link href="/" className="app-breadcrumb-link">← Trang chủ</Link>
         <span style={{ color: 'var(--muted)', fontSize: 13 }}>/</span>
         <span className="category-pill">TÀI KHOẢN & BẢO MẬT</span>
       </div>
@@ -167,7 +170,8 @@ export default function Account() {
 
         <div className="badges-grid">
           {BADGES.map((b) => (
-            <div key={b.id} className={`badge-card ${b.unlocked ? 'unlocked' : 'locked'}`}>
+            <div key={b.id} className={`badge-card ${b.unlocked ? 'unlocked' : 'locked'}`}
+              onClick={() => { if (b.unlocked) { triggerConfetti(); toast.success(`Huy hiệu: ${b.title}!`); } }}>
               <div className="badge-card-icon">{b.icon}</div>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--heading)' }}>
