@@ -16,6 +16,7 @@ page.on("console", (m) => {
     errors.push(m.text().slice(0, 200));
   }
 });
+page.on("dialog", (d) => d.accept());
 
 // 1. Landing Page (Light Mode)
 await page.goto(BASE + "/", { waitUntil: "networkidle", timeout: 30000 });
@@ -176,14 +177,62 @@ await page.screenshot({ path: `${OUT}/progress.png` });
 await page.screenshot({ path: `${OUT}/progress-full.png`, fullPage: true });
 console.log("shot progress & progress-full ok");
 
-// 8. Các routes chính còn lại
-for (const route of ["/toeic", "/folders"]) {
-  await page.goto(BASE + route, { waitUntil: "networkidle", timeout: 30000 });
-  await page.waitForTimeout(800);
-  const name = route.slice(1);
-  await page.screenshot({ path: `${OUT}/${name}.png` });
-  console.log(`shot ${route} ok`);
+// 8. Test TOEIC Hub (không còn ô nhập tên, card mục tiêu điểm số gọn gàng)
+await page.goto(BASE + "/toeic", { waitUntil: "networkidle", timeout: 30000 });
+await page.waitForTimeout(1000);
+await page.screenshot({ path: `${OUT}/toeic.png` });
+console.log("shot /toeic ok");
+
+// Làm thử 2 câu TOEIC Part 5 nộp bài sớm để tạo lỗi sai trong sổ tay
+try {
+  await page.goto(BASE + "/toeic/reading?part=5", { waitUntil: "networkidle", timeout: 30000 });
+  await page.waitForTimeout(1000);
+  const startBtn = await page.$("button:has-text('Bắt đầu làm bài thi ngay')");
+  if (startBtn) {
+    await startBtn.click();
+    await page.waitForTimeout(1200);
+    for (let step = 0; step < 2; step++) {
+      const choices = await page.$$(".choice-btn");
+      if (choices.length > 0) {
+        // Chọn option 2 hoặc 3 (thường là đáp án sai để ghi nhận vào sổ tay lỗi)
+        await choices[(step + 2) % choices.length].click();
+        await page.waitForTimeout(400);
+      }
+      if (step < 1) {
+        const nextBtn = await page.$("button:has-text('Câu tiếp')");
+        if (nextBtn) {
+          await nextBtn.click();
+          await page.waitForTimeout(600);
+        }
+      }
+    }
+    const submitBtn = await page.$("button:has-text('Nộp bài')");
+    if (submitBtn) {
+      await submitBtn.click();
+      await page.waitForTimeout(2000);
+    }
+  }
+} catch (e) {
+  console.log("toeic practice note:", e);
 }
+
+// Kiểm thử trang Sổ tay lỗi sai & Điểm yếu (Hiển thị đáp án bạn chọn & đáp án chính xác)
+await page.goto(BASE + "/toeic/errors", { waitUntil: "networkidle", timeout: 30000 });
+await page.waitForTimeout(1200);
+await page.screenshot({ path: `${OUT}/toeic-errors.png` });
+try {
+  await page.click(".theme-toggle >> nth=0");
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: `${OUT}/toeic-errors-dark.png` });
+  await page.click(".theme-toggle >> nth=0");
+} catch {}
+console.log("shot /toeic/errors ok");
+
+// Routes chính còn lại
+await page.goto(BASE + "/folders", { waitUntil: "networkidle", timeout: 30000 });
+await page.waitForTimeout(800);
+await page.screenshot({ path: `${OUT}/folders.png` });
+console.log("shot /folders ok");
 
 // 9. Test trang Tài khoản & Đổi mật khẩu (Account Page Cirrus SaaS)
 await page.goto(BASE + "/account", { waitUntil: "networkidle", timeout: 30000 });

@@ -55,6 +55,11 @@ export interface ToeicError {
   answer: number;
   explanation: string;
   grammar_tag: string;
+  choices?: string[];
+  user_choice_text?: string;
+  user_choice_letter?: string;
+  correct_choice_text?: string;
+  correct_choice_letter?: string;
 }
 
 export const TOEIC_TARGET_KEY = 'toeic-target';
@@ -102,8 +107,8 @@ export async function fetchToeicAttempts(): Promise<ToeicAttempt[]> {
 
 export interface ToeicProfile {
   username?: string;
-  display_name: string;
-  target_score: number;
+  display_name?: string;
+  target_score?: number;
 }
 
 export async function fetchToeicProfile(): Promise<ToeicProfile | null> {

@@ -1127,7 +1127,7 @@ def toeic_submit(s: ToeicSubmit, user: dict = Depends(get_current_user)) -> dict
             row = key.get(a.id)
             if row is None:
                 raise HTTPException(status_code=400, detail=f"unknown question id {a.id}")
-            _, order = _shuffled_choices(a.id, _as_list(row["choices"]))
+            served, order = _shuffled_choices(a.id, _as_list(row["choices"]))
             orig = order[a.choice] if 0 <= a.choice < len(order) else -1
             ok = orig == row["answer"]
             score += 1 if ok else 0
@@ -1140,6 +1140,11 @@ def toeic_submit(s: ToeicSubmit, user: dict = Depends(get_current_user)) -> dict
                 "grammar_tag": row["grammar_tag"],
             })
             if not ok:
+                letters = ["A", "B", "C", "D"]
+                u_txt = served[a.choice] if 0 <= a.choice < len(served) else "Chưa chọn (Bỏ qua)"
+                u_let = letters[a.choice] if 0 <= a.choice < len(letters) else "—"
+                c_txt = served[shown_answer] if 0 <= shown_answer < len(served) else ""
+                c_let = letters[shown_answer] if 0 <= shown_answer < len(letters) else ""
                 errors.append({
                     "id": a.id,
                     "prompt": row["prompt"],
@@ -1147,6 +1152,11 @@ def toeic_submit(s: ToeicSubmit, user: dict = Depends(get_current_user)) -> dict
                     "answer": shown_answer,
                     "explanation": row["explanation"],
                     "grammar_tag": row["grammar_tag"],
+                    "choices": served,
+                    "user_choice_text": u_txt,
+                    "user_choice_letter": u_let,
+                    "correct_choice_text": c_txt,
+                    "correct_choice_letter": c_let,
                 })
         total = len(s.answers)
         answered = len(s.answers)
@@ -1171,15 +1181,60 @@ def toeic_attempts(user: dict = Depends(get_current_user)) -> dict:
             text("SELECT id, score, total, kind, band, meta, errors, duration_s, created_at FROM toeic_attempts WHERE user_id = :u ORDER BY id DESC LIMIT 50"),
             {"u": user["id"]},
         ).mappings().all()
-    history = []
-    for r in rows:
-        d = dict(r)
-        try:
-            import json as _json
-            d["errors"] = _json.loads(d["errors"]) if isinstance(d["errors"], str) else (d["errors"] or [])
-        except ValueError:
-            d["errors"] = []
-        history.append(d)
+
+        history = []
+        all_qids = set()
+        for r in rows:
+            d = dict(r)
+            try:
+                import json as _json
+                errs = _json.loads(d["errors"]) if isinstance(d["errors"], str) else (d["errors"] or [])
+            except ValueError:
+                errs = []
+            d["errors"] = errs
+            for e in errs:
+                if isinstance(e, dict) and "id" in e and isinstance(e["id"], int):
+                    all_qids.add(e["id"])
+            history.append(d)
+
+        if all_qids:
+            q_rows = conn.execute(
+                text("SELECT id, choices FROM toeic_questions WHERE id = ANY(:ids)"),
+                {"ids": list(all_qids)},
+            ).mappings().all()
+            q_map = {qr["id"]: _as_list(qr["choices"]) for qr in q_rows}
+            letters = ["A", "B", "C", "D"]
+            for d in history:
+                for e in d.get("errors", []):
+                    if not isinstance(e, dict):
+                        continue
+                    qid = e.get("id")
+                    if qid in q_map:
+                        choices = q_map[qid]
+                        served, _ = _shuffled_choices(qid, choices)
+                        e["choices"] = served
+                        u_idx = e.get("choice")
+                        if u_idx is not None and isinstance(u_idx, int) and 0 <= u_idx < len(served):
+                            e["user_choice_text"] = served[u_idx]
+                            e["user_choice_letter"] = letters[u_idx] if u_idx < len(letters) else str(u_idx)
+                        elif u_idx is None or u_idx < 0:
+                            e["user_choice_text"] = "Chưa chọn (Bỏ qua)"
+                            e["user_choice_letter"] = "—"
+                        c_idx = e.get("answer")
+                        if c_idx is not None and isinstance(c_idx, int) and 0 <= c_idx < len(served):
+                            e["correct_choice_text"] = served[c_idx]
+                            e["correct_choice_letter"] = letters[c_idx] if c_idx < len(letters) else str(c_idx)
+                    else:
+                        letters = ["A", "B", "C", "D"]
+                        u_idx = e.get("choice")
+                        if u_idx is not None and isinstance(u_idx, int) and 0 <= u_idx < len(letters):
+                            e["user_choice_letter"] = letters[u_idx]
+                        elif u_idx is None or u_idx < 0:
+                            e["user_choice_letter"] = "—"
+                        c_idx = e.get("answer")
+                        if c_idx is not None and isinstance(c_idx, int) and 0 <= c_idx < len(letters):
+                            e["correct_choice_letter"] = letters[c_idx]
+
     return {"history": history, "attempts": len(history)}
 
 

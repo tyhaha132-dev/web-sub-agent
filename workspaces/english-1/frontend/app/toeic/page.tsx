@@ -158,20 +158,15 @@ export default function ToeicHome() {
   const [target, setTarget] = useState(700);
   const [attempts, setAttempts] = useState<ToeicAttempt[]>([]);
   const [error, setError] = useState('');
-  const [name, setName] = useState('');
-  const [nameSaved, setNameSaved] = useState(false);
 
   useEffect(() => {
     setTarget(loadToeicTarget());
     fetchToeicLevels().then(setLevels).catch(() => setError('😢 Không tải được thang điểm (backend chưa chạy?).'));
     fetchToeicAttempts().then(setAttempts).catch(() => {});
     fetchToeicProfile().then((p) => {
-      if (p) {
-        if (p.display_name) setName(p.display_name);
-        if (p.target_score) {
-          setTarget(p.target_score);
-          saveToeicTarget(p.target_score);
-        }
+      if (p && p.target_score) {
+        setTarget(p.target_score);
+        saveToeicTarget(p.target_score);
       }
     }).catch(() => {});
   }, []);
@@ -179,16 +174,7 @@ export default function ToeicHome() {
   function pickTarget(v: number) {
     setTarget(v);
     saveToeicTarget(v);
-    saveToeicProfile({ display_name: name, target_score: v }).catch(() => {});
-  }
-
-  async function saveName() {
-    setNameSaved(false);
-    try {
-      await saveToeicProfile({ display_name: name.trim(), target_score: target });
-      setNameSaved(true);
-      setTimeout(() => setNameSaved(false), 3000);
-    } catch { /* backend chưa chạy */ }
+    saveToeicProfile({ target_score: v }).catch(() => {});
   }
 
   const pathway = levels.filter((l) => l.max >= target).slice(0, 3);
@@ -219,73 +205,46 @@ export default function ToeicHome() {
         </p>
       </div>
 
-      {/* Profile & Target Card Cirrus */}
+      {/* Target Score Card Cirrus */}
       <div
         style={{
           background: 'var(--panel)',
           border: '1px solid var(--border-soft)',
           borderRadius: 20,
-          padding: '24px 28px',
+          padding: '20px 26px',
           boxShadow: 'var(--card-shadow)',
           marginBottom: 32,
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--heading)' }}>
-              👤 Tên hiển thị:
-            </span>
-            <input
-              value={name}
-              onChange={(e) => { setName(e.target.value); setNameSaved(false); }}
-              placeholder="Nhập tên của bạn"
-              style={{
-                padding: '7px 14px',
-                borderRadius: 9999,
-                border: '1px solid var(--border-soft)',
-                background: 'var(--input-bg)',
-                color: 'var(--ink)',
-                fontSize: 14,
-                outline: 'none',
-              }}
-            />
-            <button
-              onClick={saveName}
-              style={{
-                padding: '7px 16px',
-                borderRadius: 9999,
-                background: '#0f172a',
-                color: '#fff',
-                border: 'none',
-                fontWeight: 600,
-                fontSize: 13,
-                cursor: 'pointer',
-              }}
-            >
-              Lưu
-            </button>
-            {nameSaved && <span style={{ color: '#10b981', fontSize: 13, fontWeight: 600 }}>✅ Đã lưu</span>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 24 }}>🎯</span>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--heading)' }}>
+                Mục tiêu điểm số TOEIC của bạn
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>
+                Chọn band điểm mong muốn để hệ thống tự động tối ưu hóa lộ trình luyện đề
+              </div>
+            </div>
           </div>
 
           {/* Target Score Pill Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)' }}>
-              🎯 Mục tiêu điểm số:
-            </span>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {TARGETS.map((v) => (
                 <button
                   key={v}
                   onClick={() => pickTarget(v)}
                   style={{
-                    padding: '6px 14px',
+                    padding: '7px 18px',
                     borderRadius: 9999,
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: 700,
                     cursor: 'pointer',
                     background: v === target ? '#0284c7' : 'var(--surface-2)',
                     color: v === target ? '#ffffff' : 'var(--chip-text)',
-                    border: v === target ? '1px solid #0284c7' : '1px solid var(--border-soft)',
+                    border: v === target ? '1.5px solid #0284c7' : '1.5px solid var(--border-soft)',
                     transition: 'all 0.15s ease',
                   }}
                 >
