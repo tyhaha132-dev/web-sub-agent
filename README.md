@@ -254,7 +254,9 @@ flowchart LR
    - Import project trên Vercel, Root Directory chọn `workspaces/english-1/frontend`.
    - Biến môi trường: `NEXT_PUBLIC_API_URL` trỏ tới URL Web Service của Render.
 4. **Cơ chế giữ ấm (Keep-warm):**
-   - GitHub Actions workflow (`.github/workflows/warmup.yml`) ping `/health` định kỳ mỗi 10 phút để hạn chế cold-start của Render free tier.
+   - GitHub Actions workflow (`.github/workflows/warmup.yml`) ping `/` định kỳ mỗi 10 phút để hạn chế cold-start của Render free tier.
+   - **Chỉ ping `/` — không ping `/health`.** `/health` chạy `SELECT 1` nên đánh thức compute Neon; ping liên tục khiến Neon không auto-suspend và đốt hết 100 CU-hours/tháng của gói Free (730h × 0.25 CU = 182.5 CU-h nếu thức 24/7) → Neon trả `ERROR: Your account or project has exceeded the quota` và mọi API chạm DB trả 500. Ping `/` giữ Render ấm, Neon ngủ sau 5 phút rỗng và chỉ thức khi có request thật.
+   - Nếu dùng thêm dịch vụ ping ngoài (cron-job.org…), cũng phải trỏ về `/`, hoặc tắt hẳn vì workflow này đã đủ.
 
 ---
 
